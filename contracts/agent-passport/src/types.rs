@@ -3,6 +3,7 @@ use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config {
+    pub admin: Address,
     pub authorized_relayer: Address,
 }
 
@@ -74,13 +75,4 @@ pub struct RatingInput {
     pub consumer_address: Address,
     pub interaction_tx_hash: BytesN<32>,
     pub score: u32,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum DataKey {
-    Config,
-    Profile(Address),
-    Interaction(BytesN<32>),
-    Rating(BytesN<32>),
 }
