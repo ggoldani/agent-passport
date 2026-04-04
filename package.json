@@ -1,0 +1,13 @@
+{
+  "name": "agent-passport",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "contracts": "cargo run --manifest-path contracts/Cargo.toml",
+    "worker": "tsx src/worker/index.ts",
+    "provider": "tsx src/provider/index.ts",
+    "dashboard": "next dev web/dashboard",
+    "cli": "tsx src/cli/index.ts",
+    "demo": "tsx src/demo/index.ts"
+  }
+}
