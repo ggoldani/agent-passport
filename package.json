@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "contracts": "cargo run --manifest-path contracts/agent-passport/Cargo.toml",
+    "contracts": "cargo test --manifest-path contracts/agent-passport/Cargo.toml",
     "worker": "tsx scripts/worker/index.ts",
     "provider": "tsx src/provider/server.ts",
     "dashboard": "npm --prefix web run dev",
     "cli": "tsx src/cli/index.ts",
     "demo": "tsx scripts/demo-e2e.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.4"
   }
 }
