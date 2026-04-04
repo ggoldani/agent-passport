@@ -14,12 +14,12 @@ export interface AgentProfile {
   service_url: string | null
   mcp_server_url: string | null
   payment_endpoint: string | null
-  created_at: number
+  created_at: bigint
   score: number
-  verified_interactions_count: number
+  verified_interactions_count: bigint
   total_economic_volume: bigint
-  unique_counterparties_count: number
-  last_interaction_timestamp: number
+  unique_counterparties_count: bigint
+  last_interaction_timestamp: bigint
 }
 
 export interface AgentProfileInput {
@@ -36,7 +36,7 @@ export interface InteractionRecord {
   consumer_address: Address
   amount: bigint
   tx_hash: Bytes32
-  timestamp: number
+  timestamp: bigint
   service_label: string | null
 }
 
@@ -45,7 +45,7 @@ export interface RatingRecord {
   consumer_address: Address
   interaction_tx_hash: Bytes32
   score: number
-  timestamp: number
+  timestamp: bigint
 }
 
 export interface RatingInput {
