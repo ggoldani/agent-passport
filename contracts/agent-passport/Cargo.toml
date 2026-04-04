@@ -10,4 +10,4 @@ crate-type = ["cdylib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = "25.3.0"
+soroban-sdk = "=25.3.0"
