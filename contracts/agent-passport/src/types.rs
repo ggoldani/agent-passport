@@ -20,7 +20,7 @@ pub struct AgentProfile {
     pub created_at: u64,
     pub score: u32,
     pub verified_interactions_count: u64,
-    pub total_economic_volume: i128,
+    pub total_economic_volume: u128,
     pub unique_counterparties_count: u64,
     pub last_interaction_timestamp: u64,
 }
@@ -39,17 +39,6 @@ pub struct AgentProfileInput {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InteractionRecord {
-    pub provider_address: Address,
-    pub consumer_address: Address,
-    pub amount: i128,
-    pub tx_hash: BytesN<32>,
-    pub timestamp: u64,
-    pub service_label: Option<String>,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InteractionInput {
     pub provider_address: Address,
     pub consumer_address: Address,
     pub amount: i128,
