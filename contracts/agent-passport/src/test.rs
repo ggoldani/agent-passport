@@ -28,7 +28,7 @@ fn init_persists_admin_and_relayer_config() {
 }
 
 #[test]
-#[should_panic(expected = "ContractError(1)")]
+#[should_panic(expected = "Error(Contract, #1)")]
 fn init_rejects_reinitialization() {
     let env = test_env();
     let contract_id = env.register(AgentPassport, ());
