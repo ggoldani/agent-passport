@@ -1,6 +1,6 @@
 extern crate std;
 
-use soroban_sdk::{Address, Env};
+use soroban_sdk::{testutils::Address as _, Address, Env};
 
 fn test_env() -> Env {
     Env::default()
@@ -44,4 +44,20 @@ fn init_rejects_reinitialization() {
 
     client.init(&admin, &authorized_relayer);
     client.init(&admin, &authorized_relayer);
+}
+
+#[test]
+#[should_panic]
+fn non_admin_cannot_update_relayer() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let next_relayer = Address::generate(&env);
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.update_relayer(&attacker, &next_relayer);
 }
