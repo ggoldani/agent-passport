@@ -7,6 +7,6 @@ pub enum StorageKey {
     Profile(Address),
     Interaction(BytesN<32>),
     Rating(BytesN<32>),
-    ProviderInteractionIndex(Address, BytesN<32>),
-    ConsumerInteractionIndex(Address, BytesN<32>),
+    ProviderInteractionCount(Address),
+    ProviderInteractionBySequence(Address, u64),
 }
