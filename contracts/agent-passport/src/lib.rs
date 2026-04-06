@@ -31,6 +31,18 @@ impl AgentPassport {
     pub fn get_config(env: Env) -> Config {
         read_config(&env).unwrap()
     }
+
+    pub fn update_relayer(env: Env, admin: Address, authorized_relayer: Address) {
+        admin.require_auth();
+
+        let mut config = read_config(&env).unwrap();
+        if admin != config.admin {
+            panic_with_error!(&env, Error::OwnershipConflict);
+        }
+
+        config.authorized_relayer = authorized_relayer;
+        write_config(&env, &config);
+    }
 }
 
 #[cfg(test)]
