@@ -1,7 +1,8 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, Address, Env};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
 
+use crate::errors::Error;
 use crate::storage::{read_config, write_config};
 use crate::types::Config;
 
@@ -15,6 +16,10 @@ pub struct AgentPassport;
 #[contractimpl]
 impl AgentPassport {
     pub fn init(env: Env, admin: Address, authorized_relayer: Address) {
+        if read_config(&env).is_some() {
+            panic_with_error!(&env, Error::AlreadyInitialized);
+        }
+
         let config = Config {
             admin,
             authorized_relayer,
