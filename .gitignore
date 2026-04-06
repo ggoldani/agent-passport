@@ -16,6 +16,7 @@ out/
 target/
 .soroban/
 *.wasm
+contracts/agent-passport/Cargo.lock
 
 # Env
 .env
