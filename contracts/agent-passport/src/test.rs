@@ -232,3 +232,38 @@ fn only_authorized_relayer_can_register_interaction() {
     env.mock_all_auths();
     client.register_interaction(&interaction);
 }
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4)")]
+fn register_interaction_rejects_duplicate_tx_hash() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let first_consumer = Address::generate(&env);
+    let second_consumer = Address::generate(&env);
+    let duplicate_tx_hash = BytesN::from_array(&env, &[4; 32]);
+    let first = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: first_consumer,
+        amount: 100,
+        tx_hash: duplicate_tx_hash.clone(),
+        timestamp: 300,
+        service_label: Some(String::from_str(&env, "first")),
+    };
+    let second = InteractionRecord {
+        provider_address: provider,
+        consumer_address: second_consumer,
+        amount: 200,
+        tx_hash: duplicate_tx_hash,
+        timestamp: 400,
+        service_label: Some(String::from_str(&env, "second")),
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_interaction(&first);
+    client.register_interaction(&second);
+}
