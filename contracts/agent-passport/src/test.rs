@@ -1,8 +1,9 @@
 extern crate std;
 
 use crate::types::AgentProfileInput;
+use crate::types::InteractionRecord;
 use soroban_sdk::{testutils::Address as _, Address, Env};
-use soroban_sdk::{String, Vec};
+use soroban_sdk::{BytesN, String, Vec};
 
 fn test_env() -> Env {
     Env::default()
@@ -166,4 +167,44 @@ fn list_agents_returns_registered_profiles() {
     assert_eq!(agents.len(), 2);
     assert!(agents.iter().any(|profile| profile.owner_address == first_owner));
     assert!(agents.iter().any(|profile| profile.owner_address == second_owner));
+}
+
+#[test]
+fn list_agent_interactions_returns_newest_first_for_provider() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let first_consumer = Address::generate(&env);
+    let second_consumer = Address::generate(&env);
+    let older_tx_hash = BytesN::from_array(&env, &[1; 32]);
+    let newer_tx_hash = BytesN::from_array(&env, &[2; 32]);
+    let older = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: first_consumer,
+        amount: 100,
+        tx_hash: older_tx_hash.clone(),
+        timestamp: 100,
+        service_label: Some(String::from_str(&env, "older")),
+    };
+    let newer = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: second_consumer,
+        amount: 250,
+        tx_hash: newer_tx_hash.clone(),
+        timestamp: 200,
+        service_label: Some(String::from_str(&env, "newer")),
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_interaction(&older);
+    client.register_interaction(&newer);
+
+    let interactions = client.list_agent_interactions(&provider);
+    assert_eq!(interactions.len(), 2);
+    assert_eq!(interactions.get_unchecked(0).tx_hash, newer_tx_hash);
+    assert_eq!(interactions.get_unchecked(1).tx_hash, older_tx_hash);
 }
