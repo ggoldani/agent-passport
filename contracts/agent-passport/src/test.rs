@@ -458,3 +458,80 @@ fn only_verified_counterparty_can_rate() {
         }])
         .submit_rating(&rating);
 }
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn submit_rating_rejects_duplicate_rating_for_interaction() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let consumer = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+    let interaction = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: consumer.clone(),
+        amount: 100,
+        tx_hash: BytesN::from_array(&env, &[7; 32]),
+        timestamp: 700,
+        service_label: Some(String::from_str(&env, "rating-dup")),
+    };
+    let first_rating = RatingInput {
+        provider_address: provider.clone(),
+        consumer_address: consumer.clone(),
+        interaction_tx_hash: interaction.tx_hash.clone(),
+        score: 80,
+    };
+    let second_rating = RatingInput {
+        provider_address: provider,
+        consumer_address: consumer.clone(),
+        interaction_tx_hash: interaction.tx_hash.clone(),
+        score: 90,
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_agent(&interaction.provider_address, &provider_input);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &interaction);
+    client
+        .mock_auths(&[MockAuth {
+            address: &consumer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "submit_rating",
+                args: (&first_rating,).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .submit_rating(&first_rating);
+    client
+        .mock_auths(&[MockAuth {
+            address: &consumer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "submit_rating",
+                args: (&second_rating,).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .submit_rating(&second_rating);
+}
