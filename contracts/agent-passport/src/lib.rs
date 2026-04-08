@@ -6,9 +6,13 @@ use crate::errors::Error;
 use crate::storage::{
     append_profile_owner, has_provider_counterparty, mark_provider_counterparty, read_config,
     read_interaction, read_profile, read_profile_owners, read_provider_interaction_count,
-    read_provider_interaction_tx_hash, write_config, write_interaction, write_profile,
+    read_provider_interaction_tx_hash, read_provider_rating_count, read_provider_rating_total,
+    read_rating, write_config, write_interaction, write_profile, write_provider_rating_count,
+    write_provider_rating_total, write_rating,
 };
-use crate::types::{AgentProfile, AgentProfileInput, Config, InteractionRecord};
+use crate::types::{
+    AgentProfile, AgentProfileInput, Config, InteractionRecord, RatingInput, RatingRecord,
+};
 
 mod errors;
 mod storage;
@@ -144,6 +148,44 @@ impl AgentPassport {
         }
 
         interactions
+    }
+
+    pub fn submit_rating(env: Env, rating: RatingInput) {
+        rating.consumer_address.require_auth();
+
+        if rating.score > 100 {
+            panic_with_error!(&env, Error::InvalidScore);
+        }
+
+        let interaction = read_interaction(&env, &rating.interaction_tx_hash)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::MissingInteraction));
+        if interaction.provider_address != rating.provider_address
+            || interaction.consumer_address != rating.consumer_address
+        {
+            panic_with_error!(&env, Error::MissingInteraction);
+        }
+
+        if read_rating(&env, &rating.interaction_tx_hash).is_some() {
+            panic_with_error!(&env, Error::DuplicateRating);
+        }
+
+        let record = RatingRecord {
+            provider_address: rating.provider_address.clone(),
+            consumer_address: rating.consumer_address.clone(),
+            interaction_tx_hash: rating.interaction_tx_hash.clone(),
+            score: rating.score,
+            timestamp: env.ledger().timestamp(),
+        };
+        write_rating(&env, &record);
+
+        let mut provider_profile = read_profile(&env, &rating.provider_address).unwrap();
+        let next_count = read_provider_rating_count(&env, &rating.provider_address) + 1;
+        let next_total = read_provider_rating_total(&env, &rating.provider_address)
+            + u64::from(rating.score);
+        write_provider_rating_count(&env, &rating.provider_address, next_count);
+        write_provider_rating_total(&env, &rating.provider_address, next_total);
+        provider_profile.score = (next_total / next_count) as u32;
+        write_profile(&env, &provider_profile);
     }
 }
 

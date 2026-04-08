@@ -9,6 +9,8 @@ pub enum StorageKey {
     ProfileOwners,
     Profile(Address),
     ProviderCounterparty(Address, Address),
+    ProviderRatingCount(Address),
+    ProviderRatingTotal(Address),
     Interaction(BytesN<32>),
     Rating(BytesN<32>),
     ProviderInteractionCount(Address),
@@ -71,6 +73,32 @@ pub(crate) fn mark_provider_counterparty(
         &StorageKey::ProviderCounterparty(provider_address.clone(), consumer_address.clone()),
         &true,
     );
+}
+
+pub(crate) fn read_provider_rating_count(e: &Env, provider_address: &Address) -> u64 {
+    e.storage()
+        .persistent()
+        .get(&StorageKey::ProviderRatingCount(provider_address.clone()))
+        .unwrap_or(0)
+}
+
+pub(crate) fn write_provider_rating_count(e: &Env, provider_address: &Address, count: u64) {
+    e.storage()
+        .persistent()
+        .set(&StorageKey::ProviderRatingCount(provider_address.clone()), &count);
+}
+
+pub(crate) fn read_provider_rating_total(e: &Env, provider_address: &Address) -> u64 {
+    e.storage()
+        .persistent()
+        .get(&StorageKey::ProviderRatingTotal(provider_address.clone()))
+        .unwrap_or(0)
+}
+
+pub(crate) fn write_provider_rating_total(e: &Env, provider_address: &Address, total: u64) {
+    e.storage()
+        .persistent()
+        .set(&StorageKey::ProviderRatingTotal(provider_address.clone()), &total);
 }
 
 pub(crate) fn read_interaction(e: &Env, tx_hash: &BytesN<32>) -> Option<InteractionRecord> {
