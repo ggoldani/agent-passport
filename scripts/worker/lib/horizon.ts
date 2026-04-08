@@ -80,12 +80,31 @@ function requireNumber(value: unknown, fieldName: string): number {
   return value
 }
 
+function requireIntegerLikeNumber(value: unknown, fieldName: string): number {
+  if (typeof value === "number") {
+    if (Number.isFinite(value) && Number.isInteger(value)) {
+      return value
+    }
+  }
+
+  if (typeof value === "string" && /^[0-9]+$/.test(value)) {
+    const parsedValue = Number.parseInt(value, 10)
+    if (Number.isSafeInteger(parsedValue)) {
+      return parsedValue
+    }
+  }
+
+  throw new Error(
+    `Invalid Horizon transaction response: ${fieldName} must be an integer number or decimal string`,
+  )
+}
+
 function readOptionalNumber(value: unknown, fieldName: string): number | undefined {
   if (value === undefined) {
     return undefined
   }
 
-  return requireNumber(value, fieldName)
+  return requireIntegerLikeNumber(value, fieldName)
 }
 
 function normalizeHorizonTransaction(
@@ -110,8 +129,8 @@ function normalizeHorizonTransaction(
       transaction.source_account_sequence,
       "source_account_sequence",
     ),
-    feeCharged: requireNumber(transaction.fee_charged, "fee_charged"),
-    maxFee: requireNumber(transaction.max_fee, "max_fee"),
+    feeCharged: requireIntegerLikeNumber(transaction.fee_charged, "fee_charged"),
+    maxFee: requireIntegerLikeNumber(transaction.max_fee, "max_fee"),
   }
 
   const operationCount = readOptionalNumber(
