@@ -208,3 +208,27 @@ fn list_agent_interactions_returns_newest_first_for_provider() {
     assert_eq!(interactions.get_unchecked(0).tx_hash, newer_tx_hash);
     assert_eq!(interactions.get_unchecked(1).tx_hash, older_tx_hash);
 }
+
+#[test]
+#[should_panic(expected = "Error(Contract, #7)")]
+fn only_authorized_relayer_can_register_interaction() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let consumer = Address::generate(&env);
+    let interaction = InteractionRecord {
+        provider_address: provider,
+        consumer_address: consumer,
+        amount: 100,
+        tx_hash: BytesN::from_array(&env, &[3; 32]),
+        timestamp: 300,
+        service_label: Some(String::from_str(&env, "unauthorized")),
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_interaction(&interaction);
+}
