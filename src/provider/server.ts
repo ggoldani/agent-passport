@@ -6,6 +6,8 @@ declare const process: {
 import { serve } from "@hono/node-server"
 import { Hono } from "hono"
 
+import { analyzeAccountRoute } from "./routes/analyze-account"
+
 const DEFAULT_PROVIDER_PORT = 3001
 
 export const providerApp = new Hono()
@@ -24,6 +26,8 @@ providerApp.get("/", (context) => {
 providerApp.get("/health", (context) => {
   return context.json(buildHealthResponse())
 })
+
+providerApp.route("/analyze-account", analyzeAccountRoute)
 
 export function resolveProviderPort(env: Record<string, string | undefined>): number {
   const configuredPort = env.PROVIDER_PORT?.trim()
