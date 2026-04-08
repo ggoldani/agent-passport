@@ -14,13 +14,14 @@ declare const process: {
   exitCode?: number
 }
 
+import { Keypair } from "@stellar/stellar-sdk"
+
 import {
   createProviderHookPayload,
   type ProviderWorkerHandshakeInput,
 } from "./lib/provider-hook"
 import {
   submitInteractionToContract,
-  type DryRunInteractionSubmission,
 } from "./lib/contract"
 import { fetchHorizonTransactionByHash } from "./lib/horizon"
 import {
@@ -48,6 +49,12 @@ export interface WorkerBootstrapFailureResult {
   }
 }
 
+export interface WorkerDryRunContractSubmission {
+  mode: "dry-run"
+  relayerAddress: string
+  prepared: true
+}
+
 export interface WorkerHorizonVerification {
   kind: "horizon.transaction"
   transactionHash: string
@@ -62,7 +69,7 @@ export interface WorkerBootstrapSuccessResult {
   payload: WorkerInteractionPayload
   encodedPayload: string
   verification: WorkerHorizonVerification
-  contractSubmission: DryRunInteractionSubmission
+  contractSubmission: WorkerDryRunContractSubmission
 }
 
 export type WorkerBootstrapResult =
@@ -201,15 +208,19 @@ async function verifyWorkerInteractionPayload(
 
 async function buildDryRunContractSubmission(
   payload: WorkerInteractionPayload,
-): Promise<DryRunInteractionSubmission> {
+): Promise<WorkerDryRunContractSubmission> {
   let relayerConfig: ReturnType<typeof loadRelayerConfig>
 
   try {
     relayerConfig = loadRelayerConfig(process.env)
-  } catch (error) {
-    throw new WorkerSigningUnavailableError(
-      error instanceof Error ? error.message : "Unexpected relayer config failure",
-    )
+  } catch {
+    throw new WorkerSigningFailedError("Relayer configuration is invalid")
+  }
+
+  try {
+    Keypair.fromSecret(relayerConfig.relayerSecretKey)
+  } catch {
+    throw new WorkerSigningFailedError("Relayer secret key is invalid")
   }
 
   try {
@@ -223,7 +234,11 @@ async function buildDryRunContractSubmission(
       )
     }
 
-    return contractSubmission
+    return {
+      mode: contractSubmission.mode,
+      relayerAddress: contractSubmission.relayerAddress,
+      prepared: true,
+    }
   } catch (error) {
     if (error instanceof Error) {
       if (
@@ -232,14 +247,14 @@ async function buildDryRunContractSubmission(
         error.message.includes("Invalid txHash:") ||
         error.message.includes("Unsupported address type:")
       ) {
-        throw new WorkerSigningFailedError(error.message)
+        throw new WorkerSigningFailedError("Contract submission payload is invalid")
       }
 
-      throw new WorkerSigningUnavailableError(error.message)
+      throw new WorkerSigningUnavailableError("Relayer signing is unavailable")
     }
 
     throw new WorkerSigningUnavailableError(
-      "Unexpected dry-run contract submission failure",
+      "Relayer signing is unavailable",
     )
   }
 }
