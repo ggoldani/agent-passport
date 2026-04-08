@@ -1,5 +1,6 @@
 declare const process: {
   argv: string[]
+  env: Record<string, string | undefined>
   stdin: {
     isTTY?: boolean
     setEncoding(encoding: string): void
@@ -17,18 +18,35 @@ import {
   createProviderHookPayload,
   type ProviderWorkerHandshakeInput,
 } from "./lib/provider-hook"
+import { fetchHorizonTransactionByHash } from "./lib/horizon"
 import {
   encodeWorkerInteractionPayload,
   type WorkerInteractionPayload,
 } from "./lib/payload"
 
+const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
+const OFFICIAL_TESTNET_HORIZON_URL = "https://horizon-testnet.stellar.org"
+
 export interface WorkerBootstrapFailureResult {
   ok: false
   kind: "worker.bootstrap.result"
   error: {
-    code: "invalid_json" | "invalid_payload" | "unexpected_error"
+    code:
+      | "invalid_json"
+      | "invalid_payload"
+      | "verification_unavailable"
+      | "verification_failed"
+      | "unexpected_error"
     message: string
   }
+}
+
+export interface WorkerHorizonVerification {
+  kind: "horizon.transaction"
+  transactionHash: string
+  ledger: number
+  createdAt: string
+  sourceAccount: string
 }
 
 export interface WorkerBootstrapSuccessResult {
@@ -36,6 +54,7 @@ export interface WorkerBootstrapSuccessResult {
   kind: "worker.bootstrap.result"
   payload: WorkerInteractionPayload
   encodedPayload: string
+  verification: WorkerHorizonVerification
 }
 
 export type WorkerBootstrapResult =
@@ -45,6 +64,9 @@ export type WorkerBootstrapResult =
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
+
+class WorkerVerificationFailedError extends Error {}
+class WorkerVerificationUnavailableError extends Error {}
 
 function readStringField(
   value: Record<string, unknown>,
@@ -107,18 +129,80 @@ export function parseWorkerInteractionPayload(
   return payload
 }
 
-export function buildWorkerBootstrapResult(
+function resolveHorizonBaseUrl(env: Record<string, string | undefined>): string {
+  const configuredBaseUrl = env.STELLAR_HORIZON_URL?.trim()
+
+  if (configuredBaseUrl !== undefined && configuredBaseUrl.length > 0) {
+    return configuredBaseUrl
+  }
+
+  const networkPassphrase = env.STELLAR_NETWORK_PASSPHRASE?.trim()
+
+  if (networkPassphrase === TESTNET_NETWORK_PASSPHRASE) {
+    return OFFICIAL_TESTNET_HORIZON_URL
+  }
+
+  throw new WorkerVerificationUnavailableError(
+    "Expected STELLAR_HORIZON_URL or the official Stellar testnet passphrase to resolve Horizon verification",
+  )
+}
+
+async function verifyWorkerInteractionPayload(
+  payload: WorkerInteractionPayload,
+): Promise<WorkerHorizonVerification> {
+  const horizonBaseUrl = resolveHorizonBaseUrl(process.env)
+
+  let transaction: Awaited<ReturnType<typeof fetchHorizonTransactionByHash>>
+
+  try {
+    transaction = await fetchHorizonTransactionByHash(horizonBaseUrl, payload.txHash)
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.startsWith("Invalid transaction hash:")) {
+        throw error
+      }
+
+      if (error.message.includes(": 404 ")) {
+        throw new WorkerVerificationFailedError(error.message)
+      }
+
+      throw new WorkerVerificationUnavailableError(error.message)
+    }
+
+    throw new WorkerVerificationUnavailableError(
+      "Unexpected Horizon verification failure",
+    )
+  }
+
+  if (!transaction.successful) {
+    throw new WorkerVerificationFailedError(
+      `Horizon transaction ${transaction.hash} is not successful`,
+    )
+  }
+
+  return {
+    kind: "horizon.transaction",
+    transactionHash: transaction.hash,
+    ledger: transaction.ledger,
+    createdAt: transaction.createdAt,
+    sourceAccount: transaction.sourceAccount,
+  }
+}
+
+export async function buildWorkerBootstrapResult(
   rawPayload: unknown,
-): WorkerBootstrapResult {
+): Promise<WorkerBootstrapResult> {
   try {
     const handoff = parseWorkerInteractionPayload(rawPayload)
     const payload = createProviderHookPayload(handoff)
+    const verification = await verifyWorkerInteractionPayload(payload)
 
     return {
       ok: true,
       kind: "worker.bootstrap.result",
       payload,
       encodedPayload: encodeWorkerInteractionPayload(payload),
+      verification,
     }
   } catch (error) {
     return {
@@ -128,6 +212,10 @@ export function buildWorkerBootstrapResult(
         code:
           error instanceof SyntaxError
             ? "invalid_json"
+            : error instanceof WorkerVerificationUnavailableError
+              ? "verification_unavailable"
+            : error instanceof WorkerVerificationFailedError
+              ? "verification_failed"
             : error instanceof Error
               ? "invalid_payload"
               : "unexpected_error",
@@ -175,7 +263,7 @@ export async function main(): Promise<WorkerBootstrapResult> {
 
     const rawPayload =
       cliInput !== undefined ? parseInputText(cliInput) : parseInputText(await readStdinText())
-    const result = buildWorkerBootstrapResult(rawPayload)
+    const result = await buildWorkerBootstrapResult(rawPayload)
 
     process.stdout.write(`${JSON.stringify(result)}\n`)
 
