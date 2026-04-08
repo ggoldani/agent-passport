@@ -2,6 +2,7 @@ extern crate std;
 
 use crate::types::AgentProfileInput;
 use crate::types::InteractionRecord;
+use crate::types::RatingInput;
 use soroban_sdk::{
     testutils::{Address as _, MockAuth, MockAuthInvoke},
     Address, Env, IntoVal,
@@ -395,4 +396,65 @@ fn register_interaction_updates_provider_metrics() {
     assert_eq!(profile.total_economic_volume, 500);
     assert_eq!(profile.unique_counterparties_count, 1);
     assert_eq!(profile.last_interaction_timestamp, 500);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #8)")]
+fn only_verified_counterparty_can_rate() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let verified_consumer = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+    let interaction = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: verified_consumer,
+        amount: 100,
+        tx_hash: BytesN::from_array(&env, &[6; 32]),
+        timestamp: 600,
+        service_label: Some(String::from_str(&env, "rating-target")),
+    };
+    let rating = RatingInput {
+        provider_address: provider,
+        consumer_address: attacker.clone(),
+        interaction_tx_hash: interaction.tx_hash.clone(),
+        score: 80,
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_agent(&interaction.provider_address, &provider_input);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &interaction);
+    client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "submit_rating",
+                args: (&rating,).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .submit_rating(&rating);
 }
