@@ -10,6 +10,21 @@ const DEFAULT_PROVIDER_PORT = 3001
 
 export const providerApp = new Hono()
 
+function buildHealthResponse() {
+  return {
+    ok: true,
+    service: "stellar-intel-provider",
+  }
+}
+
+providerApp.get("/", (context) => {
+  return context.json(buildHealthResponse())
+})
+
+providerApp.get("/health", (context) => {
+  return context.json(buildHealthResponse())
+})
+
 export function resolveProviderPort(env: Record<string, string | undefined>): number {
   const configuredPort = env.PROVIDER_PORT?.trim()
 
