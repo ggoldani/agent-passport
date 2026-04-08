@@ -54,9 +54,37 @@ pub(crate) fn read_interaction(e: &Env, tx_hash: &BytesN<32>) -> Option<Interact
 }
 
 pub(crate) fn write_interaction(e: &Env, interaction: &InteractionRecord) {
+    let sequence = read_provider_interaction_count(e, &interaction.provider_address);
+
     e.storage()
         .persistent()
         .set(&StorageKey::Interaction(interaction.tx_hash.clone()), interaction);
+    e.storage().persistent().set(
+        &StorageKey::ProviderInteractionBySequence(interaction.provider_address.clone(), sequence),
+        &interaction.tx_hash,
+    );
+    e.storage().persistent().set(
+        &StorageKey::ProviderInteractionCount(interaction.provider_address.clone()),
+        &(sequence + 1),
+    );
+}
+
+pub(crate) fn read_provider_interaction_count(e: &Env, provider_address: &Address) -> u64 {
+    e.storage()
+        .persistent()
+        .get(&StorageKey::ProviderInteractionCount(provider_address.clone()))
+        .unwrap_or(0)
+}
+
+pub(crate) fn read_provider_interaction_tx_hash(
+    e: &Env,
+    provider_address: &Address,
+    sequence: u64,
+) -> Option<BytesN<32>> {
+    e.storage().persistent().get(&StorageKey::ProviderInteractionBySequence(
+        provider_address.clone(),
+        sequence,
+    ))
 }
 
 pub(crate) fn read_rating(e: &Env, interaction_tx_hash: &BytesN<32>) -> Option<RatingRecord> {

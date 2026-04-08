@@ -4,10 +4,11 @@ use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
 
 use crate::errors::Error;
 use crate::storage::{
-    append_profile_owner, read_config, read_profile, read_profile_owners, write_config,
-    write_profile,
+    append_profile_owner, read_config, read_interaction, read_profile, read_profile_owners,
+    read_provider_interaction_count, read_provider_interaction_tx_hash, write_config,
+    write_interaction, write_profile,
 };
-use crate::types::{AgentProfile, AgentProfileInput, Config};
+use crate::types::{AgentProfile, AgentProfileInput, Config, InteractionRecord};
 
 mod errors;
 mod storage;
@@ -88,6 +89,30 @@ impl AgentPassport {
         }
 
         profiles
+    }
+
+    pub fn register_interaction(env: Env, interaction: InteractionRecord) {
+        write_interaction(&env, &interaction);
+    }
+
+    pub fn list_agent_interactions(env: Env, provider_address: Address) -> Vec<InteractionRecord> {
+        let count = read_provider_interaction_count(&env, &provider_address);
+        let mut interactions = Vec::new(&env);
+        let mut remaining = count;
+
+        while remaining > 0 {
+            let sequence = remaining - 1;
+            if let Some(tx_hash) =
+                read_provider_interaction_tx_hash(&env, &provider_address, sequence)
+            {
+                if let Some(interaction) = read_interaction(&env, &tx_hash) {
+                    interactions.push_back(interaction);
+                }
+            }
+            remaining = sequence;
+        }
+
+        interactions
     }
 }
 
