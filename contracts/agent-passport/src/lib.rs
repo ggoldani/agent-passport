@@ -1,9 +1,12 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
 
 use crate::errors::Error;
-use crate::storage::{read_config, read_profile, write_config, write_profile};
+use crate::storage::{
+    append_profile_owner, read_config, read_profile, read_profile_owners, write_config,
+    write_profile,
+};
 use crate::types::{AgentProfile, AgentProfileInput, Config};
 
 mod errors;
@@ -68,10 +71,23 @@ impl AgentPassport {
         };
 
         write_profile(&env, &profile);
+        append_profile_owner(&env, &profile.owner_address);
     }
 
     pub fn get_agent(env: Env, owner_address: Address) -> AgentProfile {
         read_profile(&env, &owner_address).unwrap()
+    }
+
+    pub fn list_agents(env: Env) -> Vec<AgentProfile> {
+        let owners = read_profile_owners(&env);
+        let mut profiles = Vec::new(&env);
+        for owner_address in owners.iter() {
+            if let Some(profile) = read_profile(&env, &owner_address) {
+                profiles.push_back(profile);
+            }
+        }
+
+        profiles
     }
 }
 

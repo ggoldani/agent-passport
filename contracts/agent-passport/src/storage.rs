@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, BytesN, Env};
+use soroban_sdk::{contracttype, Address, BytesN, Env, Vec};
 
 use crate::types::{AgentProfile, Config, InteractionRecord, RatingRecord};
 
@@ -6,6 +6,7 @@ use crate::types::{AgentProfile, Config, InteractionRecord, RatingRecord};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StorageKey {
     Config,
+    ProfileOwners,
     Profile(Address),
     Interaction(BytesN<32>),
     Rating(BytesN<32>),
@@ -31,6 +32,19 @@ pub(crate) fn write_profile(e: &Env, profile: &AgentProfile) {
     e.storage()
         .persistent()
         .set(&StorageKey::Profile(profile.owner_address.clone()), profile);
+}
+
+pub(crate) fn read_profile_owners(e: &Env) -> Vec<Address> {
+    e.storage()
+        .persistent()
+        .get(&StorageKey::ProfileOwners)
+        .unwrap_or(Vec::new(e))
+}
+
+pub(crate) fn append_profile_owner(e: &Env, owner_address: &Address) {
+    let mut owners = read_profile_owners(e);
+    owners.push_back(owner_address.clone());
+    e.storage().persistent().set(&StorageKey::ProfileOwners, &owners);
 }
 
 pub(crate) fn read_interaction(e: &Env, tx_hash: &BytesN<32>) -> Option<InteractionRecord> {
