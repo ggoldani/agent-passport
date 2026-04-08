@@ -29,7 +29,8 @@ export interface SubmittedInteractionResult {
   mode: "submit"
   relayerAddress: string
   transactionXdr: string
-  response: Api.SendTransactionResponse
+  submission: Api.SendTransactionResponse
+  response: Api.GetTransactionResponse
 }
 
 export type SubmitInteractionResult =
@@ -95,14 +96,42 @@ function normalizeAmount(amount: string): bigint {
     )
   }
 
-  return BigInt(normalizedAmount)
+  const parsedAmount = BigInt(normalizedAmount)
+  if (parsedAmount <= 0n) {
+    throw new Error(
+      `Invalid amount: expected a positive integer string, got ${JSON.stringify(amount)}`,
+    )
+  }
+
+  return parsedAmount
 }
 
 function normalizeOccurredAtToUnixSeconds(occurredAt: string): bigint {
   const normalizedOccurredAt = occurredAt.trim()
+  const isoUtcPattern =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/
 
   if (/^[0-9]+$/.test(normalizedOccurredAt)) {
-    return BigInt(normalizedOccurredAt)
+    if (normalizedOccurredAt.length > 10) {
+      throw new Error(
+        `Invalid occurredAt: unix-seconds strings must not look like millisecond timestamps, got ${JSON.stringify(occurredAt)}`,
+      )
+    }
+
+    const parsedSeconds = BigInt(normalizedOccurredAt)
+    if (parsedSeconds <= 0n) {
+      throw new Error(
+        `Invalid occurredAt: unix-seconds must be a positive integer, got ${JSON.stringify(occurredAt)}`,
+      )
+    }
+
+    return parsedSeconds
+  }
+
+  if (!isoUtcPattern.test(normalizedOccurredAt)) {
+    throw new Error(
+      `Invalid occurredAt: expected UTC ISO-8601 or unix-seconds string, got ${JSON.stringify(occurredAt)}`,
+    )
   }
 
   const parsedTimestamp = Date.parse(normalizedOccurredAt)
@@ -120,20 +149,23 @@ function buildInteractionRecordScVal(
 ): xdr.ScVal {
   return xdr.ScVal.scvMap([
     new xdr.ScMapEntry({
-      key: xdr.ScVal.scvSymbol("provider_address"),
-      val: nativeToScVal(payload.providerAddress, { type: "address" }),
+      key: xdr.ScVal.scvSymbol("amount"),
+      val: nativeToScVal(normalizeAmount(payload.amount), { type: "i128" }),
     }),
     new xdr.ScMapEntry({
       key: xdr.ScVal.scvSymbol("consumer_address"),
       val: nativeToScVal(payload.consumerAddress, { type: "address" }),
     }),
     new xdr.ScMapEntry({
-      key: xdr.ScVal.scvSymbol("amount"),
-      val: nativeToScVal(normalizeAmount(payload.amount), { type: "i128" }),
+      key: xdr.ScVal.scvSymbol("provider_address"),
+      val: nativeToScVal(payload.providerAddress, { type: "address" }),
     }),
     new xdr.ScMapEntry({
-      key: xdr.ScVal.scvSymbol("tx_hash"),
-      val: xdr.ScVal.scvBytes(normalizeTransactionHashToBytes(payload.txHash)),
+      key: xdr.ScVal.scvSymbol("service_label"),
+      val:
+        payload.serviceLabel === undefined
+          ? xdr.ScVal.scvVoid()
+          : nativeToScVal(payload.serviceLabel, { type: "string" }),
     }),
     new xdr.ScMapEntry({
       key: xdr.ScVal.scvSymbol("timestamp"),
@@ -142,11 +174,8 @@ function buildInteractionRecordScVal(
       }),
     }),
     new xdr.ScMapEntry({
-      key: xdr.ScVal.scvSymbol("service_label"),
-      val:
-        payload.serviceLabel === undefined
-          ? xdr.ScVal.scvVoid()
-          : nativeToScVal(payload.serviceLabel, { type: "string" }),
+      key: xdr.ScVal.scvSymbol("tx_hash"),
+      val: xdr.ScVal.scvBytes(normalizeTransactionHashToBytes(payload.txHash)),
     }),
   ])
 }
@@ -194,11 +223,27 @@ export async function submitInteractionToContract(
       }
     }
 
-    const response = await server.sendTransaction(preparedTransaction)
+    const submission = await server.sendTransaction(preparedTransaction)
+    if (submission.status === "ERROR") {
+      throw new Error(
+        `sendTransaction failed with status ${submission.status} for ${submission.hash}`,
+      )
+    }
+
+    const response = await server.pollTransaction(submission.hash, {
+      attempts: 20,
+    })
+    if (response.status !== "SUCCESS") {
+      throw new Error(
+        `transaction did not reach SUCCESS after submission: ${response.status}`,
+      )
+    }
+
     return {
       mode,
       relayerAddress,
       transactionXdr,
+      submission,
       response,
     }
   } catch (error) {
