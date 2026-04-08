@@ -47,6 +47,10 @@ impl AgentPassport {
     pub fn register_agent(env: Env, owner_address: Address, input: AgentProfileInput) {
         owner_address.require_auth();
 
+        if read_profile(&env, &owner_address).is_some() {
+            panic_with_error!(&env, Error::OwnershipConflict);
+        }
+
         let profile = AgentProfile {
             name: input.name,
             description: input.description,
