@@ -113,4 +113,22 @@ export class AgentPassportClient {
   listAgents(): Promise<AgentProfile[]> {
     return this.readContract("list_agents", [])
   }
+
+  registerInteraction(
+    relayer: Address,
+    interaction: InteractionRecord,
+  ): Promise<void> {
+    return this.writeContract("register_interaction", [
+      relayer,
+      interaction,
+    ])
+  }
+
+  listAgentInteractions(providerAddress: Address): Promise<InteractionRecord[]> {
+    return this.readContract("list_agent_interactions", [providerAddress])
+  }
+
+  submitRating(rating: RatingInput): Promise<void> {
+    return this.writeContract("submit_rating", [rating])
+  }
 }
