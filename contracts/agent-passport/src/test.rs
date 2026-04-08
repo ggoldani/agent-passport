@@ -2,7 +2,10 @@ extern crate std;
 
 use crate::types::AgentProfileInput;
 use crate::types::InteractionRecord;
-use soroban_sdk::{testutils::Address as _, Address, Env};
+use soroban_sdk::{
+    testutils::{Address as _, MockAuth, MockAuthInvoke},
+    Address, Env, IntoVal,
+};
 use soroban_sdk::{BytesN, String, Vec};
 
 fn test_env() -> Env {
@@ -179,6 +182,14 @@ fn list_agent_interactions_returns_newest_first_for_provider() {
     let provider = Address::generate(&env);
     let first_consumer = Address::generate(&env);
     let second_consumer = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
     let older_tx_hash = BytesN::from_array(&env, &[1; 32]);
     let newer_tx_hash = BytesN::from_array(&env, &[2; 32]);
     let older = InteractionRecord {
@@ -200,8 +211,29 @@ fn list_agent_interactions_returns_newest_first_for_provider() {
 
     client.init(&admin, &authorized_relayer);
     env.mock_all_auths();
-    client.register_interaction(&older);
-    client.register_interaction(&newer);
+    client.register_agent(&provider, &provider_input);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &older).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &older);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &newer).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &newer);
 
     let interactions = client.list_agent_interactions(&provider);
     assert_eq!(interactions.len(), 2);
@@ -217,8 +249,17 @@ fn only_authorized_relayer_can_register_interaction() {
     let client = AgentPassportClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
     let authorized_relayer = Address::generate(&env);
+    let attacker = Address::generate(&env);
     let provider = Address::generate(&env);
     let consumer = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
     let interaction = InteractionRecord {
         provider_address: provider,
         consumer_address: consumer,
@@ -230,7 +271,18 @@ fn only_authorized_relayer_can_register_interaction() {
 
     client.init(&admin, &authorized_relayer);
     env.mock_all_auths();
-    client.register_interaction(&interaction);
+    client.register_agent(&interaction.provider_address, &provider_input);
+    client
+        .mock_auths(&[MockAuth {
+            address: &attacker,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&attacker, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&attacker, &interaction);
 }
 
 #[test]
@@ -244,6 +296,14 @@ fn register_interaction_rejects_duplicate_tx_hash() {
     let provider = Address::generate(&env);
     let first_consumer = Address::generate(&env);
     let second_consumer = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
     let duplicate_tx_hash = BytesN::from_array(&env, &[4; 32]);
     let first = InteractionRecord {
         provider_address: provider.clone(),
@@ -254,7 +314,7 @@ fn register_interaction_rejects_duplicate_tx_hash() {
         service_label: Some(String::from_str(&env, "first")),
     };
     let second = InteractionRecord {
-        provider_address: provider,
+        provider_address: provider.clone(),
         consumer_address: second_consumer,
         amount: 200,
         tx_hash: duplicate_tx_hash,
@@ -264,8 +324,29 @@ fn register_interaction_rejects_duplicate_tx_hash() {
 
     client.init(&admin, &authorized_relayer);
     env.mock_all_auths();
-    client.register_interaction(&first);
-    client.register_interaction(&second);
+    client.register_agent(&provider, &provider_input);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &first).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &first);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &second).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &second);
 }
 
 #[test]
@@ -297,7 +378,17 @@ fn register_interaction_updates_provider_metrics() {
     client.init(&admin, &authorized_relayer);
     env.mock_all_auths();
     client.register_agent(&provider, &provider_input);
-    client.register_interaction(&interaction);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &interaction);
 
     let profile = client.get_agent(&provider);
     assert_eq!(profile.verified_interactions_count, 1);

@@ -8,6 +8,7 @@ pub enum StorageKey {
     Config,
     ProfileOwners,
     Profile(Address),
+    ProviderCounterparty(Address, Address),
     Interaction(BytesN<32>),
     Rating(BytesN<32>),
     ProviderInteractionCount(Address),
@@ -45,6 +46,31 @@ pub(crate) fn append_profile_owner(e: &Env, owner_address: &Address) {
     let mut owners = read_profile_owners(e);
     owners.push_back(owner_address.clone());
     e.storage().persistent().set(&StorageKey::ProfileOwners, &owners);
+}
+
+pub(crate) fn has_provider_counterparty(
+    e: &Env,
+    provider_address: &Address,
+    consumer_address: &Address,
+) -> bool {
+    e.storage()
+        .persistent()
+        .get(&StorageKey::ProviderCounterparty(
+            provider_address.clone(),
+            consumer_address.clone(),
+        ))
+        .unwrap_or(false)
+}
+
+pub(crate) fn mark_provider_counterparty(
+    e: &Env,
+    provider_address: &Address,
+    consumer_address: &Address,
+) {
+    e.storage().persistent().set(
+        &StorageKey::ProviderCounterparty(provider_address.clone(), consumer_address.clone()),
+        &true,
+    );
 }
 
 pub(crate) fn read_interaction(e: &Env, tx_hash: &BytesN<32>) -> Option<InteractionRecord> {
