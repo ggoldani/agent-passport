@@ -14,6 +14,10 @@ declare const process: {
 }
 
 import {
+  createProviderHookPayload,
+  type ProviderWorkerHandshakeInput,
+} from "./lib/provider-hook"
+import {
   encodeWorkerInteractionPayload,
   type WorkerInteractionPayload,
 } from "./lib/payload"
@@ -44,7 +48,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readStringField(
   value: Record<string, unknown>,
-  fieldName: keyof WorkerInteractionPayload,
+  fieldName: string,
 ): string {
   const fieldValue = value[fieldName]
 
@@ -74,15 +78,22 @@ function readOptionalStringField(
 
 export function parseWorkerInteractionPayload(
   rawPayload: unknown,
-): WorkerInteractionPayload {
+): ProviderWorkerHandshakeInput {
   if (!isRecord(rawPayload)) {
     throw new Error("Expected the worker handoff payload to be an object")
   }
 
-  const payload: WorkerInteractionPayload = {
+  const paidRequest = rawPayload.paidRequest
+  if (!isRecord(paidRequest)) {
+    throw new Error("Expected paidRequest to be an object")
+  }
+
+  const payload: ProviderWorkerHandshakeInput = {
     providerAddress: readStringField(rawPayload, "providerAddress"),
-    consumerAddress: readStringField(rawPayload, "consumerAddress"),
-    txHash: readStringField(rawPayload, "txHash"),
+    paidRequest: {
+      consumerAddress: readStringField(paidRequest, "consumerAddress"),
+      txHash: readStringField(paidRequest, "txHash"),
+    },
     amount: readStringField(rawPayload, "amount"),
     asset: readStringField(rawPayload, "asset"),
     occurredAt: readStringField(rawPayload, "occurredAt"),
@@ -96,41 +107,18 @@ export function parseWorkerInteractionPayload(
   return payload
 }
 
-function normalizeWorkerInteractionPayload(
-  payload: WorkerInteractionPayload,
-): WorkerInteractionPayload {
-  return payload.serviceLabel === undefined
-    ? {
-        providerAddress: payload.providerAddress,
-        consumerAddress: payload.consumerAddress,
-        txHash: payload.txHash,
-        amount: payload.amount,
-        asset: payload.asset,
-        occurredAt: payload.occurredAt,
-      }
-    : {
-        providerAddress: payload.providerAddress,
-        consumerAddress: payload.consumerAddress,
-        txHash: payload.txHash,
-        amount: payload.amount,
-        asset: payload.asset,
-        occurredAt: payload.occurredAt,
-        serviceLabel: payload.serviceLabel,
-      }
-}
-
 export function buildWorkerBootstrapResult(
   rawPayload: unknown,
 ): WorkerBootstrapResult {
   try {
-    const payload = parseWorkerInteractionPayload(rawPayload)
-    const normalizedPayload = normalizeWorkerInteractionPayload(payload)
+    const handoff = parseWorkerInteractionPayload(rawPayload)
+    const payload = createProviderHookPayload(handoff)
 
     return {
       ok: true,
       kind: "worker.bootstrap.result",
-      payload: normalizedPayload,
-      encodedPayload: encodeWorkerInteractionPayload(normalizedPayload),
+      payload,
+      encodedPayload: encodeWorkerInteractionPayload(payload),
     }
   } catch (error) {
     return {
