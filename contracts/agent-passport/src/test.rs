@@ -267,3 +267,41 @@ fn register_interaction_rejects_duplicate_tx_hash() {
     client.register_interaction(&first);
     client.register_interaction(&second);
 }
+
+#[test]
+fn register_interaction_updates_provider_metrics() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let consumer = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+    let interaction = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: consumer,
+        amount: 500,
+        tx_hash: BytesN::from_array(&env, &[5; 32]),
+        timestamp: 500,
+        service_label: Some(String::from_str(&env, "metrics")),
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_agent(&provider, &provider_input);
+    client.register_interaction(&interaction);
+
+    let profile = client.get_agent(&provider);
+    assert_eq!(profile.verified_interactions_count, 1);
+    assert_eq!(profile.total_economic_volume, 500);
+    assert_eq!(profile.unique_counterparties_count, 1);
+    assert_eq!(profile.last_interaction_timestamp, 500);
+}
