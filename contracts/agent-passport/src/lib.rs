@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
+use soroban_sdk::{contract, contractevent, contractimpl, panic_with_error, Address, Env, String, Vec};
 
 use crate::errors::Error;
 use crate::storage::{
@@ -17,6 +17,46 @@ use crate::types::{
 mod errors;
 mod storage;
 mod types;
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentRegistered {
+    #[topic]
+    pub owner_address: Address,
+    pub name: String,
+    pub description: String,
+    pub tags: Vec<String>,
+    pub service_url: Option<String>,
+    pub mcp_server_url: Option<String>,
+    pub payment_endpoint: Option<String>,
+    pub created_at: u64,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InteractionRegistered {
+    #[topic]
+    pub provider_address: Address,
+    #[topic]
+    pub consumer_address: Address,
+    pub tx_hash: soroban_sdk::BytesN<32>,
+    pub amount: i128,
+    pub timestamp: u64,
+    pub service_label: Option<String>,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RatingSubmitted {
+    #[topic]
+    pub provider_address: Address,
+    #[topic]
+    pub consumer_address: Address,
+    #[topic]
+    pub interaction_tx_hash: soroban_sdk::BytesN<32>,
+    pub score: u32,
+    pub timestamp: u64,
+}
 
 #[contract]
 pub struct AgentPassport;
@@ -59,6 +99,7 @@ impl AgentPassport {
             panic_with_error!(&env, Error::OwnershipConflict);
         }
 
+        let created_at = env.ledger().timestamp();
         let profile = AgentProfile {
             name: input.name,
             description: input.description,
@@ -67,7 +108,7 @@ impl AgentPassport {
             service_url: input.service_url,
             mcp_server_url: input.mcp_server_url,
             payment_endpoint: input.payment_endpoint,
-            created_at: env.ledger().timestamp(),
+            created_at,
             score: 0,
             verified_interactions_count: 0,
             total_economic_volume: 0,
@@ -77,6 +118,17 @@ impl AgentPassport {
 
         write_profile(&env, &profile);
         append_profile_owner(&env, &profile.owner_address);
+        AgentRegistered {
+            owner_address: profile.owner_address.clone(),
+            name: profile.name.clone(),
+            description: profile.description.clone(),
+            tags: profile.tags.clone(),
+            service_url: profile.service_url.clone(),
+            mcp_server_url: profile.mcp_server_url.clone(),
+            payment_endpoint: profile.payment_endpoint.clone(),
+            created_at: profile.created_at,
+        }
+        .publish(&env);
     }
 
     pub fn get_agent(env: Env, owner_address: Address) -> AgentProfile {
@@ -128,6 +180,15 @@ impl AgentPassport {
 
         write_interaction(&env, &interaction);
         write_profile(&env, &provider_profile);
+        InteractionRegistered {
+            provider_address: interaction.provider_address.clone(),
+            consumer_address: interaction.consumer_address.clone(),
+            tx_hash: interaction.tx_hash.clone(),
+            amount: interaction.amount,
+            timestamp: interaction.timestamp,
+            service_label: interaction.service_label.clone(),
+        }
+        .publish(&env);
     }
 
     pub fn list_agent_interactions(env: Env, provider_address: Address) -> Vec<InteractionRecord> {
@@ -186,6 +247,14 @@ impl AgentPassport {
         write_provider_rating_total(&env, &rating.provider_address, next_total);
         provider_profile.score = (next_total / next_count) as u32;
         write_profile(&env, &provider_profile);
+        RatingSubmitted {
+            provider_address: rating.provider_address.clone(),
+            consumer_address: rating.consumer_address.clone(),
+            interaction_tx_hash: rating.interaction_tx_hash.clone(),
+            score: rating.score,
+            timestamp: record.timestamp,
+        }
+        .publish(&env);
     }
 }
 

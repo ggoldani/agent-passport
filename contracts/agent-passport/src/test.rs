@@ -4,8 +4,8 @@ use crate::types::AgentProfileInput;
 use crate::types::InteractionRecord;
 use crate::types::RatingInput;
 use soroban_sdk::{
-    testutils::{Address as _, MockAuth, MockAuthInvoke},
-    Address, Env, IntoVal,
+    testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke},
+    Address, Env, Event, IntoVal,
 };
 use soroban_sdk::{BytesN, String, Vec};
 
@@ -102,6 +102,113 @@ fn register_agent_persists_profile_by_owner_address() {
     assert_eq!(profile.service_url, Some(service_url));
     assert_eq!(profile.mcp_server_url, Some(mcp_server_url));
     assert_eq!(profile.payment_endpoint, Some(payment_endpoint));
+}
+
+#[test]
+fn emits_lifecycle_events_for_agent_registration_interaction_and_rating() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let consumer = Address::generate(&env);
+    let name = String::from_str(&env, "stellar-intel");
+    let description = String::from_str(&env, "Paid Stellar intelligence provider");
+    let tags = Vec::from_array(&env, [String::from_str(&env, "stellar"), String::from_str(&env, "intel")]);
+    let service_url = Some(String::from_str(&env, "https://stellarintel.test/service"));
+    let mcp_server_url = Some(String::from_str(&env, "https://stellarintel.test/mcp"));
+    let payment_endpoint = Some(String::from_str(&env, "https://stellarintel.test/pay"));
+    let agent_input = AgentProfileInput {
+        name: name.clone(),
+        description: description.clone(),
+        tags: tags.clone(),
+        service_url: service_url.clone(),
+        mcp_server_url: mcp_server_url.clone(),
+        payment_endpoint: payment_endpoint.clone(),
+    };
+    let interaction = InteractionRecord {
+        provider_address: owner.clone(),
+        consumer_address: consumer.clone(),
+        amount: 275,
+        tx_hash: BytesN::from_array(&env, &[9; 32]),
+        timestamp: 900,
+        service_label: Some(String::from_str(&env, "demo-intake")),
+    };
+    let rating = RatingInput {
+        provider_address: owner.clone(),
+        consumer_address: consumer.clone(),
+        interaction_tx_hash: interaction.tx_hash.clone(),
+        score: 95,
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_agent(&owner, &agent_input);
+
+    let expected_agent_event = super::AgentRegistered {
+        owner_address: owner.clone(),
+        name: name.clone(),
+        description: description.clone(),
+        tags: tags.clone(),
+        service_url: service_url.clone(),
+        mcp_server_url: mcp_server_url.clone(),
+        payment_endpoint: payment_endpoint.clone(),
+        created_at: 0,
+    };
+    assert_eq!(
+        env.events().all().filter_by_contract(&contract_id),
+        std::vec![expected_agent_event.to_xdr(&env, &contract_id)],
+    );
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &interaction);
+
+    let expected_interaction_event = super::InteractionRegistered {
+        provider_address: owner.clone(),
+        consumer_address: consumer.clone(),
+        tx_hash: interaction.tx_hash.clone(),
+        amount: interaction.amount,
+        timestamp: interaction.timestamp,
+        service_label: interaction.service_label.clone(),
+    };
+    assert_eq!(
+        env.events().all().filter_by_contract(&contract_id),
+        std::vec![expected_interaction_event.to_xdr(&env, &contract_id)],
+    );
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &consumer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "submit_rating",
+                args: (&rating,).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .submit_rating(&rating);
+
+    let expected_rating_event = super::RatingSubmitted {
+        provider_address: owner,
+        consumer_address: consumer,
+        interaction_tx_hash: interaction.tx_hash,
+        score: rating.score,
+        timestamp: 0,
+    };
+    assert_eq!(
+        env.events().all().filter_by_contract(&contract_id),
+        std::vec![expected_rating_event.to_xdr(&env, &contract_id)],
+    );
 }
 
 #[test]
