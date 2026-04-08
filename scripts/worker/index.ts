@@ -42,6 +42,8 @@ export interface WorkerBootstrapFailureResult {
       | "invalid_payload"
       | "signing_unavailable"
       | "signing_failed"
+      | "submission_unavailable"
+      | "submission_failed"
       | "verification_unavailable"
       | "verification_failed"
       | "unexpected_error"
@@ -49,10 +51,12 @@ export interface WorkerBootstrapFailureResult {
   }
 }
 
-export interface WorkerDryRunContractSubmission {
-  mode: "dry-run"
+export interface WorkerSubmittedContractSubmission {
+  mode: "submit"
   relayerAddress: string
-  prepared: true
+  submissionHash: string
+  submissionStatus: string
+  finalStatus: string
 }
 
 export interface WorkerHorizonVerification {
@@ -69,7 +73,7 @@ export interface WorkerBootstrapSuccessResult {
   payload: WorkerInteractionPayload
   encodedPayload: string
   verification: WorkerHorizonVerification
-  contractSubmission: WorkerDryRunContractSubmission
+  contractSubmission: WorkerSubmittedContractSubmission
 }
 
 export type WorkerBootstrapResult =
@@ -84,6 +88,8 @@ class WorkerVerificationFailedError extends Error {}
 class WorkerVerificationUnavailableError extends Error {}
 class WorkerSigningFailedError extends Error {}
 class WorkerSigningUnavailableError extends Error {}
+class WorkerSubmissionFailedError extends Error {}
+class WorkerSubmissionUnavailableError extends Error {}
 
 function readStringField(
   value: Record<string, unknown>,
@@ -206,9 +212,9 @@ async function verifyWorkerInteractionPayload(
   }
 }
 
-async function buildDryRunContractSubmission(
+async function buildSubmittedContractSubmission(
   payload: WorkerInteractionPayload,
-): Promise<WorkerDryRunContractSubmission> {
+): Promise<WorkerSubmittedContractSubmission> {
   let relayerConfig: ReturnType<typeof loadRelayerConfig>
 
   try {
@@ -225,19 +231,21 @@ async function buildDryRunContractSubmission(
 
   try {
     const contractSubmission = await submitInteractionToContract(relayerConfig, payload, {
-      mode: "dry-run",
+      mode: "submit",
     })
 
-    if (contractSubmission.mode !== "dry-run") {
-      throw new WorkerSigningUnavailableError(
-        `Unexpected contract submission mode during Task 48: ${contractSubmission.mode}`,
+    if (contractSubmission.mode !== "submit") {
+      throw new WorkerSubmissionUnavailableError(
+        `Unexpected contract submission mode during Task 49: ${contractSubmission.mode}`,
       )
     }
 
     return {
       mode: contractSubmission.mode,
       relayerAddress: contractSubmission.relayerAddress,
-      prepared: true,
+      submissionHash: contractSubmission.submission.hash,
+      submissionStatus: contractSubmission.submission.status,
+      finalStatus: contractSubmission.response.status,
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -250,11 +258,20 @@ async function buildDryRunContractSubmission(
         throw new WorkerSigningFailedError("Contract submission payload is invalid")
       }
 
-      throw new WorkerSigningUnavailableError("Relayer signing is unavailable")
+      if (
+        error.message.includes("sendTransaction failed") ||
+        error.message.includes("transaction did not reach SUCCESS")
+      ) {
+        throw new WorkerSubmissionFailedError("On-chain interaction submission failed")
+      }
+
+      throw new WorkerSubmissionUnavailableError(
+        "On-chain interaction submission is unavailable",
+      )
     }
 
-    throw new WorkerSigningUnavailableError(
-      "Relayer signing is unavailable",
+    throw new WorkerSubmissionUnavailableError(
+      "On-chain interaction submission is unavailable",
     )
   }
 }
@@ -266,7 +283,7 @@ export async function buildWorkerBootstrapResult(
     const handoff = parseWorkerInteractionPayload(rawPayload)
     const payload = createProviderHookPayload(handoff)
     const verification = await verifyWorkerInteractionPayload(payload)
-    const contractSubmission = await buildDryRunContractSubmission(payload)
+    const contractSubmission = await buildSubmittedContractSubmission(payload)
 
     return {
       ok: true,
@@ -284,6 +301,10 @@ export async function buildWorkerBootstrapResult(
         code:
           error instanceof SyntaxError
             ? "invalid_json"
+            : error instanceof WorkerSubmissionUnavailableError
+              ? "submission_unavailable"
+            : error instanceof WorkerSubmissionFailedError
+              ? "submission_failed"
             : error instanceof WorkerSigningUnavailableError
               ? "signing_unavailable"
             : error instanceof WorkerSigningFailedError
