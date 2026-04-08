@@ -98,4 +98,19 @@ export class AgentPassportClient {
   ): Promise<AgentPassportMethodResult[M]> {
     return this.transport.write(this.contractId, method, args)
   }
+
+  registerAgent(
+    ownerAddress: Address,
+    input: AgentProfileInput,
+  ): Promise<void> {
+    return this.writeContract("register_agent", [ownerAddress, input])
+  }
+
+  getAgent(ownerAddress: Address): Promise<AgentProfile> {
+    return this.readContract("get_agent", [ownerAddress])
+  }
+
+  listAgents(): Promise<AgentProfile[]> {
+    return this.readContract("list_agents", [])
+  }
 }
