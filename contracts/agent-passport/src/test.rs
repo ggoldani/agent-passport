@@ -98,3 +98,35 @@ fn register_agent_persists_profile_by_owner_address() {
     assert_eq!(profile.mcp_server_url, Some(mcp_server_url));
     assert_eq!(profile.payment_endpoint, Some(payment_endpoint));
 }
+
+#[test]
+#[should_panic(expected = "Error(Contract, #2)")]
+fn register_agent_rejects_conflicting_existing_owner_profile() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let first_input = AgentProfileInput {
+        name: String::from_str(&env, "first-agent"),
+        description: String::from_str(&env, "First profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "first")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+    let second_input = AgentProfileInput {
+        name: String::from_str(&env, "second-agent"),
+        description: String::from_str(&env, "Conflicting profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "second")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_agent(&owner, &first_input);
+    client.register_agent(&owner, &second_input);
+}
