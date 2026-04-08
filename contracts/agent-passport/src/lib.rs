@@ -3,8 +3,8 @@
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
 
 use crate::errors::Error;
-use crate::storage::{read_config, write_config};
-use crate::types::Config;
+use crate::storage::{read_config, read_profile, write_config, write_profile};
+use crate::types::{AgentProfile, AgentProfileInput, Config};
 
 mod errors;
 mod storage;
@@ -42,6 +42,32 @@ impl AgentPassport {
 
         config.authorized_relayer = authorized_relayer;
         write_config(&env, &config);
+    }
+
+    pub fn register_agent(env: Env, owner_address: Address, input: AgentProfileInput) {
+        owner_address.require_auth();
+
+        let profile = AgentProfile {
+            name: input.name,
+            description: input.description,
+            tags: input.tags,
+            owner_address,
+            service_url: input.service_url,
+            mcp_server_url: input.mcp_server_url,
+            payment_endpoint: input.payment_endpoint,
+            created_at: env.ledger().timestamp(),
+            score: 0,
+            verified_interactions_count: 0,
+            total_economic_volume: 0,
+            unique_counterparties_count: 0,
+            last_interaction_timestamp: 0,
+        };
+
+        write_profile(&env, &profile);
+    }
+
+    pub fn get_agent(env: Env, owner_address: Address) -> AgentProfile {
+        read_profile(&env, &owner_address).unwrap()
     }
 }
 
