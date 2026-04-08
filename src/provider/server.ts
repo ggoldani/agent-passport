@@ -3,9 +3,11 @@ declare const process: {
   env: Record<string, string | undefined>
 }
 
-import { serve } from "@hono/node-server"
+import { createServer } from "node:http"
+import { getRequestListener } from "@hono/node-server"
 import { Hono } from "hono"
 
+import { createX402NodeMiddleware } from "./lib/x402"
 import { analyzeAccountRoute } from "./routes/analyze-account"
 
 const DEFAULT_PROVIDER_PORT = 3001
@@ -45,10 +47,24 @@ export function resolveProviderPort(env: Record<string, string | undefined>): nu
 }
 
 export function startProviderServer(port = resolveProviderPort(process.env)) {
-  return serve({
-    fetch: providerApp.fetch,
-    port,
+  const honoListener = getRequestListener(providerApp.fetch)
+  const x402Middleware = createX402NodeMiddleware(process.env)
+
+  const server = createServer(async (incoming, outgoing) => {
+    await x402Middleware(incoming, outgoing, async (error?: unknown) => {
+      if (error !== undefined) {
+        outgoing.statusCode = 500
+        outgoing.setHeader("content-type", "application/json")
+        outgoing.end(JSON.stringify({ ok: false, code: "provider_error" }))
+        return
+      }
+
+      await honoListener(incoming, outgoing)
+    })
   })
+
+  server.listen(port)
+  return server
 }
 
 if (process.argv[1]?.endsWith("src/provider/server.ts")) {

@@ -16,6 +16,10 @@
   "dependencies": {
     "@hono/node-server": "^1.19.13",
     "@stellar/stellar-sdk": "^15.0.1",
+    "@x402/core": "^2.9.0",
+    "@x402/express": "^2.9.0",
+    "@x402/stellar": "^2.9.0",
+    "express": "^5.2.1",
     "hono": "^4.12.12"
   }
 }

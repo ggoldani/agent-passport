@@ -1,3 +1,7 @@
+import { paymentMiddlewareFromConfig } from "@x402/express"
+import { HTTPFacilitatorClient } from "@x402/core/server"
+import { ExactStellarScheme } from "@x402/stellar/exact/server"
+
 export const ANALYZE_ACCOUNT_ROUTE_PATH = "/analyze-account"
 
 export interface X402ProviderConfigEnv {
@@ -14,6 +18,7 @@ export interface X402ProtectedRouteConfig {
     network: "stellar:testnet" | "stellar:pubnet"
     payTo: string
   }
+  description: string
 }
 
 export interface X402ProviderConfig {
@@ -21,6 +26,27 @@ export interface X402ProviderConfig {
   network: "stellar:testnet" | "stellar:pubnet"
   protectedRoutePath: typeof ANALYZE_ACCOUNT_ROUTE_PATH
   middlewareConfig: Record<`POST ${typeof ANALYZE_ACCOUNT_ROUTE_PATH}`, X402ProtectedRouteConfig>
+}
+
+interface NodeLikeIncoming {
+  headers: Record<string, string | string[] | undefined>
+  method?: string
+  url?: string
+  socket?: unknown
+  header?: (name: string) => string | string[] | undefined
+  path?: string
+  protocol?: string
+  originalUrl?: string
+  query?: Record<string, string | string[]>
+}
+
+interface NodeLikeOutgoing {
+  statusCode: number
+  setHeader(name: string, value: string): this
+  end(chunk?: string | Uint8Array): this
+  status?: (statusCode: number) => NodeLikeOutgoing
+  json?: (body: unknown) => NodeLikeOutgoing
+  send?: (body: unknown) => NodeLikeOutgoing
 }
 
 const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
@@ -129,7 +155,80 @@ export function loadX402ProviderConfig(env: X402ProviderConfigEnv): X402Provider
           network,
           payTo,
         },
+        description: "Analyze a Stellar account with StellarIntel",
       },
     },
+  }
+}
+
+function decorateNodeRequestForX402(incoming: NodeLikeIncoming): NodeLikeIncoming {
+  const host = incoming.headers.host
+  const normalizedHost = Array.isArray(host) ? host[0] : host
+  const protocol =
+    typeof incoming.socket === "object" &&
+    incoming.socket !== null &&
+    "encrypted" in incoming.socket &&
+    incoming.socket.encrypted === true
+      ? "https"
+      : "http"
+  const originalUrl = incoming.url ?? "/"
+  const requestUrl = new URL(originalUrl, `${protocol}://${normalizedHost ?? "localhost"}`)
+
+  incoming.header = (name: string) => {
+    const value = incoming.headers[name.toLowerCase()]
+    return Array.isArray(value) ? value[0] : value
+  }
+  incoming.path = requestUrl.pathname
+  incoming.protocol = requestUrl.protocol.replace(/:$/, "")
+  incoming.originalUrl = originalUrl
+  incoming.query = Object.fromEntries(requestUrl.searchParams.entries())
+
+  return incoming
+}
+
+function decorateNodeResponseForX402(outgoing: NodeLikeOutgoing): NodeLikeOutgoing {
+  outgoing.status = (statusCode: number) => {
+    outgoing.statusCode = statusCode
+    return outgoing
+  }
+  outgoing.json = (body: unknown) => {
+    outgoing.setHeader("content-type", "application/json")
+    outgoing.end(JSON.stringify(body))
+    return outgoing
+  }
+  outgoing.send = (body: unknown) => {
+    if (typeof body === "string") {
+      outgoing.end(body)
+      return outgoing
+    }
+
+    if (body instanceof Uint8Array) {
+      outgoing.end(body)
+      return outgoing
+    }
+
+    return outgoing.json?.(body) ?? outgoing
+  }
+
+  return outgoing
+}
+
+export function createX402NodeMiddleware(env: X402ProviderConfigEnv) {
+  const providerConfig = loadX402ProviderConfig(env)
+  const middleware = paymentMiddlewareFromConfig(
+    providerConfig.middlewareConfig,
+    new HTTPFacilitatorClient({ url: providerConfig.facilitatorUrl }),
+    [{ network: providerConfig.network, server: new ExactStellarScheme() }],
+  )
+
+  return async (
+    incoming: NodeLikeIncoming,
+    outgoing: NodeLikeOutgoing,
+    next: (error?: unknown) => Promise<void> | void,
+  ): Promise<void> => {
+    const request = decorateNodeRequestForX402(incoming)
+    const response = decorateNodeResponseForX402(outgoing)
+
+    await middleware(request as never, response as never, next as never)
   }
 }

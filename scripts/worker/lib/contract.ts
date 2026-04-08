@@ -175,7 +175,7 @@ function buildInteractionRecordScVal(
     }),
     new xdr.ScMapEntry({
       key: xdr.ScVal.scvSymbol("tx_hash"),
-      val: xdr.ScVal.scvBytes(normalizeTransactionHashToBytes(payload.txHash)),
+      val: xdr.ScVal.scvBytes(Buffer.from(normalizeTransactionHashToBytes(payload.txHash))),
     }),
   ])
 }
