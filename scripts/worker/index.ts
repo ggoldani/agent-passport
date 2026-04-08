@@ -18,11 +18,16 @@ import {
   createProviderHookPayload,
   type ProviderWorkerHandshakeInput,
 } from "./lib/provider-hook"
+import {
+  submitInteractionToContract,
+  type DryRunInteractionSubmission,
+} from "./lib/contract"
 import { fetchHorizonTransactionByHash } from "./lib/horizon"
 import {
   encodeWorkerInteractionPayload,
   type WorkerInteractionPayload,
 } from "./lib/payload"
+import { loadRelayerConfig } from "./lib/relayer"
 
 const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
 const OFFICIAL_TESTNET_HORIZON_URL = "https://horizon-testnet.stellar.org"
@@ -34,6 +39,8 @@ export interface WorkerBootstrapFailureResult {
     code:
       | "invalid_json"
       | "invalid_payload"
+      | "signing_unavailable"
+      | "signing_failed"
       | "verification_unavailable"
       | "verification_failed"
       | "unexpected_error"
@@ -55,6 +62,7 @@ export interface WorkerBootstrapSuccessResult {
   payload: WorkerInteractionPayload
   encodedPayload: string
   verification: WorkerHorizonVerification
+  contractSubmission: DryRunInteractionSubmission
 }
 
 export type WorkerBootstrapResult =
@@ -67,6 +75,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 class WorkerVerificationFailedError extends Error {}
 class WorkerVerificationUnavailableError extends Error {}
+class WorkerSigningFailedError extends Error {}
+class WorkerSigningUnavailableError extends Error {}
 
 function readStringField(
   value: Record<string, unknown>,
@@ -189,6 +199,51 @@ async function verifyWorkerInteractionPayload(
   }
 }
 
+async function buildDryRunContractSubmission(
+  payload: WorkerInteractionPayload,
+): Promise<DryRunInteractionSubmission> {
+  let relayerConfig: ReturnType<typeof loadRelayerConfig>
+
+  try {
+    relayerConfig = loadRelayerConfig(process.env)
+  } catch (error) {
+    throw new WorkerSigningUnavailableError(
+      error instanceof Error ? error.message : "Unexpected relayer config failure",
+    )
+  }
+
+  try {
+    const contractSubmission = await submitInteractionToContract(relayerConfig, payload, {
+      mode: "dry-run",
+    })
+
+    if (contractSubmission.mode !== "dry-run") {
+      throw new WorkerSigningUnavailableError(
+        `Unexpected contract submission mode during Task 48: ${contractSubmission.mode}`,
+      )
+    }
+
+    return contractSubmission
+  } catch (error) {
+    if (error instanceof Error) {
+      if (
+        error.message.includes("Invalid amount:") ||
+        error.message.includes("Invalid occurredAt:") ||
+        error.message.includes("Invalid txHash:") ||
+        error.message.includes("Unsupported address type:")
+      ) {
+        throw new WorkerSigningFailedError(error.message)
+      }
+
+      throw new WorkerSigningUnavailableError(error.message)
+    }
+
+    throw new WorkerSigningUnavailableError(
+      "Unexpected dry-run contract submission failure",
+    )
+  }
+}
+
 export async function buildWorkerBootstrapResult(
   rawPayload: unknown,
 ): Promise<WorkerBootstrapResult> {
@@ -196,6 +251,7 @@ export async function buildWorkerBootstrapResult(
     const handoff = parseWorkerInteractionPayload(rawPayload)
     const payload = createProviderHookPayload(handoff)
     const verification = await verifyWorkerInteractionPayload(payload)
+    const contractSubmission = await buildDryRunContractSubmission(payload)
 
     return {
       ok: true,
@@ -203,6 +259,7 @@ export async function buildWorkerBootstrapResult(
       payload,
       encodedPayload: encodeWorkerInteractionPayload(payload),
       verification,
+      contractSubmission,
     }
   } catch (error) {
     return {
@@ -212,6 +269,10 @@ export async function buildWorkerBootstrapResult(
         code:
           error instanceof SyntaxError
             ? "invalid_json"
+            : error instanceof WorkerSigningUnavailableError
+              ? "signing_unavailable"
+            : error instanceof WorkerSigningFailedError
+              ? "signing_failed"
             : error instanceof WorkerVerificationUnavailableError
               ? "verification_unavailable"
             : error instanceof WorkerVerificationFailedError
