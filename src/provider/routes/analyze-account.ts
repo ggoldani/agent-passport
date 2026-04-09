@@ -5,6 +5,12 @@ declare const process: {
 import { StrKey } from "@stellar/stellar-sdk"
 import { Hono } from "hono"
 
+import {
+  addDeterministicSignals,
+  addRecentActivityFromHistory,
+  buildAccountAnalysisFromAccount,
+} from "../lib/analyze-account"
+import { generateAccountSummary } from "../lib/summary"
 import { readX402VerifiedPaymentContext } from "../lib/x402"
 import { StellarMcpClient } from "../lib/stellar-mcp-client"
 
@@ -21,34 +27,6 @@ function isAnalyzeAccountRequestBody(value: unknown): value is AnalyzeAccountReq
     "address" in value &&
     typeof value.address === "string"
   )
-}
-
-function countTrustlinesFromBalances(
-  balances: Array<{ asset_type: string }>,
-): number {
-  return balances.filter((balance) => balance.asset_type !== "native").length
-}
-
-function findLatestHistoryRecord(
-  records: Array<{ hash: string; createdAt: string }>,
-): { hash: string; createdAt: string } | null {
-  let latestRecord: { hash: string; createdAt: string } | null = null
-  let latestTimestamp = Number.NEGATIVE_INFINITY
-
-  for (const record of records) {
-    const timestamp = Date.parse(record.createdAt)
-
-    if (!Number.isFinite(timestamp)) {
-      continue
-    }
-
-    if (timestamp > latestTimestamp) {
-      latestRecord = record
-      latestTimestamp = timestamp
-    }
-  }
-
-  return latestRecord
 }
 
 analyzeAccountRoute.post("/", async (context) => {
@@ -112,13 +90,23 @@ analyzeAccountRoute.post("/", async (context) => {
           includeOperations: true,
         }),
       ])
-      const latestHistoryRecord = findLatestHistoryRecord(history.records)
+      const analysis = addDeterministicSignals(
+        addRecentActivityFromHistory(
+          buildAccountAnalysisFromAccount(address, account),
+          history,
+        ),
+      )
 
       return context.json(
         {
           ok: true,
-          code: "companion_data_loaded",
+          code: "account_analysis_ready",
           address,
+          summary: generateAccountSummary(analysis),
+          balances: analysis.balances,
+          trustlines: analysis.trustlines,
+          recentActivity: analysis.recentActivity,
+          signals: analysis.signals.map((signal) => signal.label),
           payment: {
             x402Version,
             network: accepted.network,
@@ -129,20 +117,6 @@ analyzeAccountRoute.post("/", async (context) => {
               typeof payload === "object" &&
               payload !== null &&
               typeof payload.transaction === "string",
-          },
-          companionData: {
-            account: {
-              accountId: account.accountId,
-              balanceCount: account.balances.length,
-              trustlineCount: countTrustlinesFromBalances(account.balances),
-              signerCount: account.signers.length,
-              minimumBalance: account.minimumBalance,
-            },
-            history: {
-              recordCount: history.records.length,
-              latestTransactionHash: latestHistoryRecord?.hash ?? null,
-              latestTransactionAt: latestHistoryRecord?.createdAt ?? null,
-            },
           },
         },
         200,
