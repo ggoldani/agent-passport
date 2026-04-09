@@ -1,4 +1,8 @@
-import { paymentMiddlewareFromConfig } from "@x402/express"
+import {
+  paymentMiddlewareFromHTTPServer,
+  x402HTTPResourceServer,
+  x402ResourceServer,
+} from "@x402/express"
 import {
   decodePaymentResponseHeader,
   decodePaymentSignatureHeader,
@@ -11,6 +15,11 @@ import {
   getNetworkPassphrase,
 } from "@x402/stellar"
 import { ExactStellarScheme } from "@x402/stellar/exact/server"
+import {
+  createProviderWorkerHandshakeInput,
+  runProviderWorkerHandshake,
+  type ProviderWorkerHandshakeInput,
+} from "./worker-handshake"
 
 export const ANALYZE_ACCOUNT_ROUTE_PATH = "/analyze-account"
 
@@ -71,6 +80,7 @@ interface NodeLikeOutgoing {
 
 const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
 const PUBNET_NETWORK_PASSPHRASE = "Public Global Stellar Network ; September 2015"
+const STELLAR_INTEL_SERVICE_LABEL = "stellar-intel"
 
 function readRequiredEnvVar(
   env: X402ProviderConfigEnv,
@@ -283,16 +293,76 @@ function decorateNodeResponseForX402(outgoing: NodeLikeOutgoing): NodeLikeOutgoi
   return outgoing
 }
 
+function requireSettlementString(
+  value: string | undefined,
+  fieldName: "payer" | "transaction" | "amount",
+): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Expected settled payment ${fieldName} to be a non-empty string`)
+  }
+
+  return value.trim()
+}
+
+export interface ProviderSettlementHookContext {
+  requirements: {
+    payTo: string
+    amount: string
+    asset: string
+  }
+  result: {
+    payer?: string
+    transaction: string
+    amount?: string
+  }
+}
+
+export type ProviderWorkerInvoker = (
+  input: ProviderWorkerHandshakeInput,
+) => Promise<Awaited<ReturnType<typeof runProviderWorkerHandshake>>>
+
+export async function handleProviderSettlementResult(
+  context: ProviderSettlementHookContext,
+  invokeWorker: ProviderWorkerInvoker = runProviderWorkerHandshake,
+): Promise<Awaited<ReturnType<typeof runProviderWorkerHandshake>>> {
+  const handoff = createProviderWorkerHandshakeInput({
+    providerAddress: context.requirements.payTo,
+    consumerAddress: requireSettlementString(context.result.payer, "payer"),
+    txHash: requireSettlementString(context.result.transaction, "transaction"),
+    amount:
+      context.result.amount === undefined
+        ? context.requirements.amount
+        : requireSettlementString(context.result.amount, "amount"),
+    asset: context.requirements.asset,
+    occurredAt: new Date().toISOString(),
+    serviceLabel: STELLAR_INTEL_SERVICE_LABEL,
+  })
+  const result = await invokeWorker(handoff)
+
+  if (result.ok === false) {
+    throw new Error(`Worker handoff failed: ${result.error.code}`)
+  }
+
+  return result
+}
+
 export function createX402NodeMiddleware(env: X402ProviderConfigEnv) {
   const providerConfig = loadX402ProviderConfig(env)
-  const middleware = paymentMiddlewareFromConfig(
-    providerConfig.middlewareConfig,
+  const resourceServer = new x402ResourceServer(
     new HTTPFacilitatorClient({ url: providerConfig.facilitatorUrl }),
-    [{
-      network: providerConfig.network,
-      server: createExactStellarServerScheme(providerConfig.network),
-    }],
   )
+    .register(
+      providerConfig.network,
+      createExactStellarServerScheme(providerConfig.network),
+    )
+    .onAfterSettle(async (context) => {
+      await handleProviderSettlementResult(context)
+    })
+  const httpServer = new x402HTTPResourceServer(
+    resourceServer,
+    providerConfig.middlewareConfig,
+  )
+  const middleware = paymentMiddlewareFromHTTPServer(httpServer)
 
   return async (
     incoming: NodeLikeIncoming,

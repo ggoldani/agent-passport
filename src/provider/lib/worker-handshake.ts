@@ -1,3 +1,7 @@
+import {
+  buildWorkerBootstrapResult,
+  type WorkerBootstrapResult,
+} from "../../../scripts/worker/index.js"
 import type { WorkerInteractionPayload } from "../../../scripts/worker/lib/payload"
 
 export interface PaidRequestSettlementContext {
@@ -12,6 +16,43 @@ export interface ProviderWorkerHandshakeInput {
   asset: string
   occurredAt: string
   serviceLabel?: string
+}
+
+export interface ProviderWorkerRegistrationInput {
+  providerAddress: string
+  consumerAddress: string
+  txHash: string
+  amount: string
+  asset: string
+  occurredAt: string
+  serviceLabel?: string
+}
+
+export function createProviderWorkerHandshakeInput(
+  input: ProviderWorkerRegistrationInput,
+): ProviderWorkerHandshakeInput {
+  return input.serviceLabel === undefined
+    ? {
+        providerAddress: input.providerAddress,
+        paidRequest: {
+          consumerAddress: input.consumerAddress,
+          txHash: input.txHash,
+        },
+        amount: input.amount,
+        asset: input.asset,
+        occurredAt: input.occurredAt,
+      }
+    : {
+        providerAddress: input.providerAddress,
+        paidRequest: {
+          consumerAddress: input.consumerAddress,
+          txHash: input.txHash,
+        },
+        amount: input.amount,
+        asset: input.asset,
+        occurredAt: input.occurredAt,
+        serviceLabel: input.serviceLabel,
+      }
 }
 
 export function buildWorkerInteractionPayload(
@@ -35,4 +76,10 @@ export function buildWorkerInteractionPayload(
         occurredAt: input.occurredAt,
         serviceLabel: input.serviceLabel,
       }
+}
+
+export async function runProviderWorkerHandshake(
+  input: ProviderWorkerHandshakeInput,
+): Promise<WorkerBootstrapResult> {
+  return await buildWorkerBootstrapResult(input)
 }
