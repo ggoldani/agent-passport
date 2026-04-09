@@ -43,6 +43,24 @@ export interface StellarMcpAccount {
   minimumBalance: string
 }
 
+export interface StellarMcpAccountHistoryRecord {
+  id: string
+  hash: string
+  ledger: number
+  createdAt: string
+  sourceAccount: string
+  feeCharged: string
+  successful: boolean
+  operationCount: number
+  memo: string | null
+  memoType: string | null
+}
+
+export interface StellarMcpAccountHistory {
+  records: StellarMcpAccountHistoryRecord[]
+  nextCursor: string | null
+}
+
 function readRequiredEnvVar(
   env: StellarMcpClientConfigEnv,
   key: keyof StellarMcpClientConfigEnv,
@@ -143,6 +161,28 @@ export class StellarMcpClient {
 
     return parseStellarMcpAccountResult(
       parseToolTextJson(result.content, "stellar_get_account"),
+    )
+  }
+
+  async getAccountHistory(
+    publicKey: string,
+    options: {
+      limit?: number
+      cursor?: string
+    } = {},
+  ): Promise<StellarMcpAccountHistory> {
+    const client = await this.#getClient()
+    const result = await client.callTool({
+      name: "stellar_get_account_history",
+      arguments: {
+        publicKey,
+        ...(options.limit === undefined ? {} : { limit: options.limit }),
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      },
+    })
+
+    return parseStellarMcpAccountHistoryResult(
+      parseToolTextJson(result.content, "stellar_get_account_history"),
     )
   }
 
@@ -323,5 +363,79 @@ function parseStellarMcpAccountResult(value: unknown): StellarMcpAccount {
     flags: parseBooleanRecord(account.flags, "flags"),
     subentryCount: account.subentryCount,
     minimumBalance: account.minimumBalance,
+  }
+}
+
+function parseNullableString(value: unknown, fieldName: string): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`Invalid stellar_get_account_history response: ${fieldName} has unexpected shape`)
+  }
+
+  return value
+}
+
+function parseAccountHistoryRecords(
+  value: unknown,
+): StellarMcpAccountHistoryRecord[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid stellar_get_account_history response: records must be an array")
+  }
+
+  return value.map((entry) => {
+    if (typeof entry !== "object" || entry === null) {
+      throw new Error("Invalid stellar_get_account_history response: record must be an object")
+    }
+
+    const record = entry as Record<string, unknown>
+
+    if (
+      typeof record.id !== "string" ||
+      typeof record.hash !== "string" ||
+      typeof record.ledger !== "number" ||
+      typeof record.createdAt !== "string" ||
+      typeof record.sourceAccount !== "string" ||
+      typeof record.feeCharged !== "string" ||
+      typeof record.successful !== "boolean" ||
+      typeof record.operationCount !== "number"
+    ) {
+      throw new Error("Invalid stellar_get_account_history response: record has unexpected shape")
+    }
+
+    return {
+      id: record.id,
+      hash: record.hash,
+      ledger: record.ledger,
+      createdAt: record.createdAt,
+      sourceAccount: record.sourceAccount,
+      feeCharged: record.feeCharged,
+      successful: record.successful,
+      operationCount: record.operationCount,
+      memo: parseNullableString(record.memo, "memo"),
+      memoType: parseNullableString(record.memoType, "memoType"),
+    }
+  })
+}
+
+function parseStellarMcpAccountHistoryResult(
+  value: unknown,
+): StellarMcpAccountHistory {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid stellar_get_account_history response: expected an object")
+  }
+
+  const history = value as Record<string, unknown>
+  const nextCursor = history.nextCursor
+
+  if (!(typeof nextCursor === "string" || nextCursor === null || nextCursor === undefined)) {
+    throw new Error("Invalid stellar_get_account_history response: nextCursor has unexpected shape")
+  }
+
+  return {
+    records: parseAccountHistoryRecords(history.records),
+    nextCursor: (nextCursor ?? null) as string | null,
   }
 }
