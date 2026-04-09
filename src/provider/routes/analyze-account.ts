@@ -1,7 +1,12 @@
+declare const process: {
+  env: Record<string, string | undefined>
+}
+
 import { StrKey } from "@stellar/stellar-sdk"
 import { Hono } from "hono"
 
 import { readX402VerifiedPaymentContext } from "../lib/x402"
+import { StellarMcpClient } from "../lib/stellar-mcp-client"
 
 export const analyzeAccountRoute = new Hono()
 
@@ -16,6 +21,12 @@ function isAnalyzeAccountRequestBody(value: unknown): value is AnalyzeAccountReq
     "address" in value &&
     typeof value.address === "string"
   )
+}
+
+function countTrustlinesFromBalances(
+  balances: Array<{ asset_type: string }>,
+): number {
+  return balances.filter((balance) => balance.asset_type !== "native").length
 }
 
 analyzeAccountRoute.post("/", async (context) => {
@@ -69,22 +80,59 @@ analyzeAccountRoute.post("/", async (context) => {
 
   const { accepted, payload, x402Version } = verifiedPayment.paymentPayload
 
-  return context.json(
-    {
-      ok: true,
-      code: "paid_request_verified",
-      payment: {
-        x402Version,
-        network: accepted.network,
-        amount: accepted.amount,
-        asset: accepted.asset,
-        payTo: accepted.payTo,
-        hasTransactionPayload:
-          typeof payload === "object" &&
-          payload !== null &&
-          typeof payload.transaction === "string",
+  const stellarMcpClient = StellarMcpClient.fromEnv(process.env)
+
+  try {
+    const [account, history] = await Promise.all([
+      stellarMcpClient.getAccount(address),
+      stellarMcpClient.getAccountHistory(address, {
+        limit: 5,
+        includeOperations: true,
+      }),
+    ])
+
+    return context.json(
+      {
+        ok: true,
+        code: "companion_data_loaded",
+        address,
+        payment: {
+          x402Version,
+          network: accepted.network,
+          amount: accepted.amount,
+          asset: accepted.asset,
+          payTo: accepted.payTo,
+          hasTransactionPayload:
+            typeof payload === "object" &&
+            payload !== null &&
+            typeof payload.transaction === "string",
+        },
+        companionData: {
+          account: {
+            accountId: account.accountId,
+            balanceCount: account.balances.length,
+            trustlineCount: countTrustlinesFromBalances(account.balances),
+            signerCount: account.signers.length,
+            minimumBalance: account.minimumBalance,
+          },
+          history: {
+            recordCount: history.records.length,
+            latestTransactionHash: history.records[0]?.hash ?? null,
+            latestTransactionAt: history.records[0]?.createdAt ?? null,
+          },
+        },
       },
-    },
-    200,
-  )
+      200,
+    )
+  } catch {
+    return context.json(
+      {
+        ok: false,
+        code: "stellar_mcp_unavailable",
+      },
+      502,
+    )
+  } finally {
+    await stellarMcpClient.close()
+  }
 })
