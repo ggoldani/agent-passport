@@ -139,8 +139,9 @@ function buildRecentActivityFromHistory(
 ): AccountAnalysisRecentActivity {
   return {
     transactionCount: history.records.length,
-    // `stellar_get_account_history` is transaction-level today, not payment-level.
-    paymentCount: 0,
+    paymentCount: history.records.reduce((count, record) => {
+      return count + record.operations.filter((operation) => operation.type === "payment").length
+    }, 0),
     latestTransactionAt: selectLatestTransactionAt(history.records),
   }
 }

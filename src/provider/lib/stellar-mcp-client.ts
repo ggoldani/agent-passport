@@ -54,6 +54,16 @@ export interface StellarMcpAccountHistoryRecord {
   operationCount: number
   memo: string | null
   memoType: string | null
+  operations: StellarMcpAccountHistoryOperation[]
+}
+
+export interface StellarMcpAccountHistoryOperation {
+  id: string
+  type: string
+  typeI: number
+  createdAt: string
+  sourceAccount: string
+  transactionSuccessful: boolean
 }
 
 export interface StellarMcpAccountHistory {
@@ -169,6 +179,7 @@ export class StellarMcpClient {
     options: {
       limit?: number
       cursor?: string
+      includeOperations?: boolean
     } = {},
   ): Promise<StellarMcpAccountHistory> {
     const client = await this.#getClient()
@@ -178,6 +189,9 @@ export class StellarMcpClient {
         publicKey,
         ...(options.limit === undefined ? {} : { limit: options.limit }),
         ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+        ...(options.includeOperations === undefined
+          ? {}
+          : { includeOperations: options.includeOperations }),
       },
     })
 
@@ -416,6 +430,47 @@ function parseAccountHistoryRecords(
       operationCount: record.operationCount,
       memo: parseNullableString(record.memo, "memo"),
       memoType: parseNullableString(record.memoType, "memoType"),
+      operations: parseAccountHistoryOperations(record.operations),
+    }
+  })
+}
+
+function parseAccountHistoryOperations(
+  value: unknown,
+): StellarMcpAccountHistoryOperation[] {
+  if (value === undefined) {
+    return []
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid stellar_get_account_history response: operations must be an array")
+  }
+
+  return value.map((entry) => {
+    if (typeof entry !== "object" || entry === null) {
+      throw new Error("Invalid stellar_get_account_history response: operation must be an object")
+    }
+
+    const operation = entry as Record<string, unknown>
+
+    if (
+      typeof operation.id !== "string" ||
+      typeof operation.type !== "string" ||
+      typeof operation.typeI !== "number" ||
+      typeof operation.createdAt !== "string" ||
+      typeof operation.sourceAccount !== "string" ||
+      typeof operation.transactionSuccessful !== "boolean"
+    ) {
+      throw new Error("Invalid stellar_get_account_history response: operation has unexpected shape")
+    }
+
+    return {
+      id: operation.id,
+      type: operation.type,
+      typeI: operation.typeI,
+      createdAt: operation.createdAt,
+      sourceAccount: operation.sourceAccount,
+      transactionSuccessful: operation.transactionSuccessful,
     }
   })
 }
