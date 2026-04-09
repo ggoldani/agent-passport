@@ -7,6 +7,10 @@ import {
   decodePaymentResponseHeader,
   decodePaymentSignatureHeader,
 } from "@x402/core/http"
+import type {
+  HTTPRequestContext,
+  ProcessSettleFailureResponse,
+} from "@x402/core/http"
 import { HTTPFacilitatorClient } from "@x402/core/server"
 import type { PaymentPayload, SettleResponse } from "@x402/core/types"
 import { Asset } from "@stellar/stellar-sdk"
@@ -38,6 +42,13 @@ export interface X402ProtectedRouteConfig {
     payTo: string
   }
   description: string
+  settlementFailedResponseBody?: (
+    context: HTTPRequestContext,
+    settleResult: Omit<ProcessSettleFailureResponse, "response">,
+  ) => Promise<{
+    contentType: string
+    body: ProviderSettlementFailureBody
+  }>
 }
 
 export interface X402ProviderConfig {
@@ -45,6 +56,15 @@ export interface X402ProviderConfig {
   network: "stellar:testnet" | "stellar:pubnet"
   protectedRoutePath: typeof ANALYZE_ACCOUNT_ROUTE_PATH
   middlewareConfig: Record<`POST ${typeof ANALYZE_ACCOUNT_ROUTE_PATH}`, X402ProtectedRouteConfig>
+}
+
+export interface ProviderSettlementFailureBody {
+  ok: false
+  code:
+    | "worker_handoff_failed"
+    | "payment_context_invalid"
+    | "payment_settlement_failed"
+  errorReason: string
 }
 
 export interface X402VerifiedPaymentContext {
@@ -206,8 +226,38 @@ export function loadX402ProviderConfig(env: X402ProviderConfigEnv): X402Provider
           payTo,
         },
         description: "Analyze a Stellar account with StellarIntel",
+        settlementFailedResponseBody: async (_context, settleResult) => ({
+          contentType: "application/json",
+          body: buildProviderSettlementFailureBody(settleResult.errorReason),
+        }),
       },
     },
+  }
+}
+
+export function buildProviderSettlementFailureBody(
+  errorReason: string,
+): ProviderSettlementFailureBody {
+  if (errorReason.startsWith("Worker handoff failed:")) {
+    return {
+      ok: false,
+      code: "worker_handoff_failed",
+      errorReason,
+    }
+  }
+
+  if (errorReason.startsWith("Expected settled payment")) {
+    return {
+      ok: false,
+      code: "payment_context_invalid",
+      errorReason,
+    }
+  }
+
+  return {
+    ok: false,
+    code: "payment_settlement_failed",
+    errorReason,
   }
 }
 
