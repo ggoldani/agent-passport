@@ -1,4 +1,8 @@
-import type { StellarMcpAccount } from "./stellar-mcp-client.js"
+import type {
+  StellarMcpAccount,
+  StellarMcpAccountHistory,
+  StellarMcpAccountHistoryRecord,
+} from "./stellar-mcp-client.js"
 
 export type StellarAssetType =
   | "native"
@@ -110,4 +114,43 @@ export function buildAccountAnalysisFromAccount(
     }))
 
   return analysis
+}
+
+function selectLatestTransactionAt(
+  records: StellarMcpAccountHistoryRecord[],
+): string | null {
+  let latestTimestampMs = Number.NEGATIVE_INFINITY
+  let latestCreatedAt: string | null = null
+
+  for (const record of records) {
+    const timestampMs = Date.parse(record.createdAt)
+
+    if (!Number.isNaN(timestampMs) && timestampMs > latestTimestampMs) {
+      latestTimestampMs = timestampMs
+      latestCreatedAt = record.createdAt
+    }
+  }
+
+  return latestCreatedAt
+}
+
+function buildRecentActivityFromHistory(
+  history: StellarMcpAccountHistory,
+): AccountAnalysisRecentActivity {
+  return {
+    transactionCount: history.records.length,
+    // `stellar_get_account_history` is transaction-level today, not payment-level.
+    paymentCount: 0,
+    latestTransactionAt: selectLatestTransactionAt(history.records),
+  }
+}
+
+export function addRecentActivityFromHistory(
+  analysis: AccountAnalysis,
+  history: StellarMcpAccountHistory,
+): AccountAnalysis {
+  return {
+    ...analysis,
+    recentActivity: buildRecentActivityFromHistory(history),
+  }
 }
