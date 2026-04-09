@@ -1,5 +1,15 @@
 import { paymentMiddlewareFromConfig } from "@x402/express"
+import {
+  decodePaymentResponseHeader,
+  decodePaymentSignatureHeader,
+} from "@x402/core/http"
 import { HTTPFacilitatorClient } from "@x402/core/server"
+import type { PaymentPayload, SettleResponse } from "@x402/core/types"
+import { Asset } from "@stellar/stellar-sdk"
+import {
+  convertToTokenAmount,
+  getNetworkPassphrase,
+} from "@x402/stellar"
 import { ExactStellarScheme } from "@x402/stellar/exact/server"
 
 export const ANALYZE_ACCOUNT_ROUTE_PATH = "/analyze-account"
@@ -26,6 +36,16 @@ export interface X402ProviderConfig {
   network: "stellar:testnet" | "stellar:pubnet"
   protectedRoutePath: typeof ANALYZE_ACCOUNT_ROUTE_PATH
   middlewareConfig: Record<`POST ${typeof ANALYZE_ACCOUNT_ROUTE_PATH}`, X402ProtectedRouteConfig>
+}
+
+export interface X402VerifiedPaymentContext {
+  rawHeader: string
+  paymentPayload: PaymentPayload
+}
+
+export interface X402SettlementContext {
+  rawHeader: string
+  settleResponse: SettleResponse
 }
 
 interface NodeLikeIncoming {
@@ -114,6 +134,26 @@ function normalizePrice(price: string): string {
   return normalized
 }
 
+function buildNativeXlmAsset(network: "stellar:testnet" | "stellar:pubnet") {
+  return Asset.native().contractId(getNetworkPassphrase(network))
+}
+
+function createExactStellarServerScheme(
+  network: "stellar:testnet" | "stellar:pubnet",
+): ExactStellarScheme {
+  return new ExactStellarScheme().registerMoneyParser(async (amount, parserNetwork) => {
+    if (parserNetwork !== network) {
+      return null
+    }
+
+    return {
+      amount: convertToTokenAmount(String(amount)),
+      asset: buildNativeXlmAsset(network),
+      extra: {},
+    }
+  })
+}
+
 export function resolveX402Network(
   networkPassphrase: string,
 ): "stellar:testnet" | "stellar:pubnet" {
@@ -158,6 +198,36 @@ export function loadX402ProviderConfig(env: X402ProviderConfigEnv): X402Provider
         description: "Analyze a Stellar account with StellarIntel",
       },
     },
+  }
+}
+
+export function readX402VerifiedPaymentContext(
+  getHeader: (name: string) => string | undefined,
+): X402VerifiedPaymentContext | null {
+  const rawHeader = getHeader("payment-signature") ?? getHeader("x-payment")
+
+  if (rawHeader === undefined) {
+    return null
+  }
+
+  return {
+    rawHeader,
+    paymentPayload: decodePaymentSignatureHeader(rawHeader),
+  }
+}
+
+export function readX402SettlementContext(
+  getHeader: (name: string) => string | undefined,
+): X402SettlementContext | null {
+  const rawHeader = getHeader("payment-response")
+
+  if (rawHeader === undefined) {
+    return null
+  }
+
+  return {
+    rawHeader,
+    settleResponse: decodePaymentResponseHeader(rawHeader),
   }
 }
 
@@ -218,7 +288,10 @@ export function createX402NodeMiddleware(env: X402ProviderConfigEnv) {
   const middleware = paymentMiddlewareFromConfig(
     providerConfig.middlewareConfig,
     new HTTPFacilitatorClient({ url: providerConfig.facilitatorUrl }),
-    [{ network: providerConfig.network, server: new ExactStellarScheme() }],
+    [{
+      network: providerConfig.network,
+      server: createExactStellarServerScheme(providerConfig.network),
+    }],
   )
 
   return async (
