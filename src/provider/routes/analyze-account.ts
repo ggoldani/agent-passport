@@ -29,6 +29,28 @@ function countTrustlinesFromBalances(
   return balances.filter((balance) => balance.asset_type !== "native").length
 }
 
+function findLatestHistoryRecord(
+  records: Array<{ hash: string; createdAt: string }>,
+): { hash: string; createdAt: string } | null {
+  let latestRecord: { hash: string; createdAt: string } | null = null
+  let latestTimestamp = Number.NEGATIVE_INFINITY
+
+  for (const record of records) {
+    const timestamp = Date.parse(record.createdAt)
+
+    if (!Number.isFinite(timestamp)) {
+      continue
+    }
+
+    if (timestamp > latestTimestamp) {
+      latestRecord = record
+      latestTimestamp = timestamp
+    }
+  }
+
+  return latestRecord
+}
+
 analyzeAccountRoute.post("/", async (context) => {
   let requestBody: unknown
 
@@ -80,50 +102,54 @@ analyzeAccountRoute.post("/", async (context) => {
 
   const { accepted, payload, x402Version } = verifiedPayment.paymentPayload
 
-  const stellarMcpClient = StellarMcpClient.fromEnv(process.env)
-
   try {
-    const [account, history] = await Promise.all([
-      stellarMcpClient.getAccount(address),
-      stellarMcpClient.getAccountHistory(address, {
-        limit: 5,
-        includeOperations: true,
-      }),
-    ])
+    const stellarMcpClient = StellarMcpClient.fromEnv(process.env)
+    try {
+      const [account, history] = await Promise.all([
+        stellarMcpClient.getAccount(address),
+        stellarMcpClient.getAccountHistory(address, {
+          limit: 5,
+          includeOperations: true,
+        }),
+      ])
+      const latestHistoryRecord = findLatestHistoryRecord(history.records)
 
-    return context.json(
-      {
-        ok: true,
-        code: "companion_data_loaded",
-        address,
-        payment: {
-          x402Version,
-          network: accepted.network,
-          amount: accepted.amount,
-          asset: accepted.asset,
-          payTo: accepted.payTo,
-          hasTransactionPayload:
-            typeof payload === "object" &&
-            payload !== null &&
-            typeof payload.transaction === "string",
-        },
-        companionData: {
-          account: {
-            accountId: account.accountId,
-            balanceCount: account.balances.length,
-            trustlineCount: countTrustlinesFromBalances(account.balances),
-            signerCount: account.signers.length,
-            minimumBalance: account.minimumBalance,
+      return context.json(
+        {
+          ok: true,
+          code: "companion_data_loaded",
+          address,
+          payment: {
+            x402Version,
+            network: accepted.network,
+            amount: accepted.amount,
+            asset: accepted.asset,
+            payTo: accepted.payTo,
+            hasTransactionPayload:
+              typeof payload === "object" &&
+              payload !== null &&
+              typeof payload.transaction === "string",
           },
-          history: {
-            recordCount: history.records.length,
-            latestTransactionHash: history.records[0]?.hash ?? null,
-            latestTransactionAt: history.records[0]?.createdAt ?? null,
+          companionData: {
+            account: {
+              accountId: account.accountId,
+              balanceCount: account.balances.length,
+              trustlineCount: countTrustlinesFromBalances(account.balances),
+              signerCount: account.signers.length,
+              minimumBalance: account.minimumBalance,
+            },
+            history: {
+              recordCount: history.records.length,
+              latestTransactionHash: latestHistoryRecord?.hash ?? null,
+              latestTransactionAt: latestHistoryRecord?.createdAt ?? null,
+            },
           },
         },
-      },
-      200,
-    )
+        200,
+      )
+    } finally {
+      await stellarMcpClient.close()
+    }
   } catch {
     return context.json(
       {
@@ -132,7 +158,5 @@ analyzeAccountRoute.post("/", async (context) => {
       },
       502,
     )
-  } finally {
-    await stellarMcpClient.close()
   }
 })
