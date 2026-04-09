@@ -155,3 +155,58 @@ export function addRecentActivityFromHistory(
     recentActivity: buildRecentActivityFromHistory(history),
   }
 }
+
+function hasPositiveNativeBalance(analysis: AccountAnalysis): boolean {
+  return analysis.balances.some((balance) => {
+    return balance.assetType === "native" && Number.parseFloat(balance.amount) > 0
+  })
+}
+
+function hasPositiveTrustlineBalance(analysis: AccountAnalysis): boolean {
+  return analysis.trustlines.some((trustline) => {
+    return Number.parseFloat(trustline.amount) > 0
+  })
+}
+
+function buildDeterministicSignals(
+  analysis: AccountAnalysis,
+): AccountAnalysisSignal[] {
+  const signals: AccountAnalysisSignal[] = []
+
+  if (analysis.recentActivity.transactionCount >= 3) {
+    signals.push({
+      code: "active_recent_history",
+      label: "Active in recent history",
+    })
+  } else if (analysis.recentActivity.transactionCount === 0) {
+    signals.push({
+      code: "low_recent_activity",
+      label: "Low recent activity",
+    })
+  }
+
+  if (analysis.recentActivity.paymentCount > 0) {
+    signals.push({
+      code: "recent_payment_activity",
+      label: "Shows recent payment activity",
+    })
+  }
+
+  if (hasPositiveNativeBalance(analysis) && hasPositiveTrustlineBalance(analysis)) {
+    signals.push({
+      code: "mixed_asset_usage",
+      label: "Uses mixed native and non-native assets",
+    })
+  }
+
+  return signals
+}
+
+export function addDeterministicSignals(
+  analysis: AccountAnalysis,
+): AccountAnalysis {
+  return {
+    ...analysis,
+    signals: buildDeterministicSignals(analysis),
+  }
+}
