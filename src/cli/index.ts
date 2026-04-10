@@ -34,6 +34,10 @@ interface PreparedAgentRegistration {
   input: AgentProfileInput
 }
 
+interface PreparedAgentQuery {
+  ownerAddress: Address
+}
+
 const AGENT_REGISTER_OPTION_NAMES = [
   "owner-address",
   "name",
@@ -43,6 +47,8 @@ const AGENT_REGISTER_OPTION_NAMES = [
   "mcp-server-url",
   "payment-endpoint",
 ] as const
+
+const AGENT_QUERY_OPTION_NAMES = ["owner-address"] as const
 
 function isAgentPassportCliCommand(
   value: string,
@@ -68,6 +74,12 @@ function buildAgentRegisterUsage(): string {
     "  --service-url <https://...>",
     "  --mcp-server-url <https://...>",
     "  --payment-endpoint <https://...>",
+  ].join("\n")
+}
+
+function buildAgentQueryUsage(): string {
+  return [
+    "Usage: npm run cli -- agent_query --owner-address <G...>",
   ].join("\n")
 }
 
@@ -157,29 +169,49 @@ function normalizeTags(rawTags: string | undefined): string[] {
     .filter((tag) => tag.length > 0)
 }
 
+function parseCommandOptions(
+  args: string[],
+  commandName: "agent_register" | "agent_query",
+  allowedOptionNames: readonly string[],
+) {
+  const { options, positionals } = parseOptionArgs(args)
+
+  if (positionals.length > 0) {
+    throw new Error(
+      `Unexpected positional arguments for ${commandName}: ${positionals.join(" ")}`,
+    )
+  }
+
+  for (const optionName of Object.keys(options)) {
+    if (!allowedOptionNames.includes(optionName)) {
+      throw new Error(`Unknown option for ${commandName}: --${optionName}`)
+    }
+  }
+
+  return options
+}
+
+function parseOwnerAddressOption(options: Record<string, string>): Address {
+  const ownerAddress = readRequiredOption(options, "owner-address")
+
+  if (!StrKey.isValidEd25519PublicKey(ownerAddress)) {
+    throw new Error(`Invalid Stellar owner address: ${ownerAddress}`)
+  }
+
+  return ownerAddress
+}
+
 function prepareAgentRegistration(args: string[]): PreparedAgentRegistration {
   if (args[0] === "help" || args[0] === "--help") {
     throw new Error(buildAgentRegisterUsage())
   }
 
-  const { options, positionals } = parseOptionArgs(args)
-
-  if (positionals.length > 0) {
-    throw new Error(
-      `Unexpected positional arguments for agent_register: ${positionals.join(" ")}`,
-    )
-  }
-
-  for (const optionName of Object.keys(options)) {
-    if (!AGENT_REGISTER_OPTION_NAMES.includes(optionName as never)) {
-      throw new Error(`Unknown option for agent_register: --${optionName}`)
-    }
-  }
-
-  const ownerAddress = readRequiredOption(options, "owner-address")
-  if (!StrKey.isValidEd25519PublicKey(ownerAddress)) {
-    throw new Error(`Invalid Stellar owner address: ${ownerAddress}`)
-  }
+  const options = parseCommandOptions(
+    args,
+    "agent_register",
+    AGENT_REGISTER_OPTION_NAMES,
+  )
+  const ownerAddress = parseOwnerAddressOption(options)
 
   return {
     ownerAddress,
@@ -191,6 +223,18 @@ function prepareAgentRegistration(args: string[]): PreparedAgentRegistration {
       mcp_server_url: readOptionalOption(options, "mcp-server-url"),
       payment_endpoint: readOptionalOption(options, "payment-endpoint"),
     },
+  }
+}
+
+function prepareAgentQuery(args: string[]): PreparedAgentQuery {
+  if (args[0] === "help" || args[0] === "--help") {
+    throw new Error(buildAgentQueryUsage())
+  }
+
+  const options = parseCommandOptions(args, "agent_query", AGENT_QUERY_OPTION_NAMES)
+
+  return {
+    ownerAddress: parseOwnerAddressOption(options),
   }
 }
 
@@ -224,6 +268,35 @@ function runAgentRegisterCommand(args: string[]): number {
   }
 }
 
+function runAgentQueryCommand(args: string[]): number {
+  try {
+    const query = prepareAgentQuery(args)
+
+    writeStdoutLine(
+      JSON.stringify(
+        {
+          ok: true,
+          command: "agent_query",
+          mode: "prepared",
+          ownerAddress: query.ownerAddress,
+        },
+        null,
+        2,
+      ),
+    )
+    return 0
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    writeStderrLine(message)
+    if (message !== buildAgentQueryUsage()) {
+      writeStderrLine("")
+      writeStderrLine(buildAgentQueryUsage())
+    }
+    return 1
+  }
+}
+
 export function runCli(argv: string[]): number {
   const command = argv[0]
 
@@ -241,6 +314,10 @@ export function runCli(argv: string[]): number {
 
   if (command === "agent_register") {
     return runAgentRegisterCommand(argv.slice(1))
+  }
+
+  if (command === "agent_query") {
+    return runAgentQueryCommand(argv.slice(1))
   }
 
   writeStderrLine(`Command not implemented yet: ${command}`)
