@@ -46,6 +46,10 @@ interface PreparedAgentRating {
   rating: RatingInput
 }
 
+interface PreparedAgentInteractions {
+  providerAddress: Address
+}
+
 const AGENT_REGISTER_OPTION_NAMES = [
   "owner-address",
   "name",
@@ -57,6 +61,7 @@ const AGENT_REGISTER_OPTION_NAMES = [
 ] as const
 
 const AGENT_QUERY_OPTION_NAMES = ["owner-address"] as const
+const AGENT_INTERACTIONS_OPTION_NAMES = ["provider-address"] as const
 const AGENT_RATE_OPTION_NAMES = [
   "provider-address",
   "consumer-address",
@@ -106,6 +111,12 @@ function buildAgentListUsage(): string {
 function buildAgentRateUsage(): string {
   return [
     "Usage: npm run cli -- agent_rate --provider-address <G...> --consumer-address <G...> --interaction-tx-hash <64-hex> --score <0-100>",
+  ].join("\n")
+}
+
+function buildAgentInteractionsUsage(): string {
+  return [
+    "Usage: npm run cli -- agent_interactions --provider-address <G...>",
   ].join("\n")
 }
 
@@ -197,7 +208,11 @@ function normalizeTags(rawTags: string | undefined): string[] {
 
 function parseCommandOptions(
   args: string[],
-  commandName: "agent_register" | "agent_query" | "agent_rate",
+  commandName:
+    | "agent_register"
+    | "agent_query"
+    | "agent_rate"
+    | "agent_interactions",
   allowedOptionNames: readonly string[],
 ) {
   const { options, positionals } = parseOptionArgs(args)
@@ -345,6 +360,22 @@ function prepareAgentRating(args: string[]): PreparedAgentRating {
   }
 }
 
+function prepareAgentInteractions(args: string[]): PreparedAgentInteractions {
+  if (args[0] === "help" || args[0] === "--help") {
+    throw new Error(buildAgentInteractionsUsage())
+  }
+
+  const options = parseCommandOptions(
+    args,
+    "agent_interactions",
+    AGENT_INTERACTIONS_OPTION_NAMES,
+  )
+
+  return {
+    providerAddress: parseStellarAddressOption(options, "provider-address"),
+  }
+}
+
 function runAgentRegisterCommand(args: string[]): number {
   try {
     const registration = prepareAgentRegistration(args)
@@ -462,6 +493,35 @@ function runAgentRateCommand(args: string[]): number {
   }
 }
 
+function runAgentInteractionsCommand(args: string[]): number {
+  try {
+    const interactions = prepareAgentInteractions(args)
+
+    writeStdoutLine(
+      JSON.stringify(
+        {
+          ok: true,
+          command: "agent_interactions",
+          mode: "prepared",
+          providerAddress: interactions.providerAddress,
+        },
+        null,
+        2,
+      ),
+    )
+    return 0
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    writeStderrLine(message)
+    if (message !== buildAgentInteractionsUsage()) {
+      writeStderrLine("")
+      writeStderrLine(buildAgentInteractionsUsage())
+    }
+    return 1
+  }
+}
+
 export function runCli(argv: string[]): number {
   const command = argv[0]
 
@@ -491,6 +551,10 @@ export function runCli(argv: string[]): number {
 
   if (command === "agent_rate") {
     return runAgentRateCommand(argv.slice(1))
+  }
+
+  if (command === "agent_interactions") {
+    return runAgentInteractionsCommand(argv.slice(1))
   }
 
   writeStderrLine(`Command not implemented yet: ${command}`)
