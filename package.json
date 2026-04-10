@@ -1,0 +1,26 @@
+{
+  "name": "agent-passport",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "contracts": "cargo test --manifest-path contracts/agent-passport/Cargo.toml",
+    "worker": "tsx scripts/worker/index.ts",
+    "provider": "tsx src/provider/server.ts",
+    "dashboard": "npm --prefix web run dev",
+    "cli": "tsx src/cli/index.ts",
+    "demo": "tsx scripts/demo-e2e.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.4"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.13",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@stellar/stellar-sdk": "^15.0.1",
+    "@x402/core": "^2.9.0",
+    "@x402/express": "^2.9.0",
+    "@x402/stellar": "^2.9.0",
+    "express": "^5.2.1",
+    "hono": "^4.12.12"
+  }
+}
