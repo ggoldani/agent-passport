@@ -79,8 +79,11 @@ And this is the non-negotiable rule behind the system:
 - verified interaction registration
 - rating-based reputation
 - trusted relayer flow
+- CLI surfaces for register/query/list/rate/interactions
 - local dashboard for demo
 - minimal provider service (**StellarIntel**) for the end-to-end paid interaction demo
+- deterministic account analysis using live Stellar data via a local companion service
+- end-to-end demo script that runs the trust flow on Stellar testnet
 
 ### Not included
 - decentralized attestation network
@@ -95,12 +98,52 @@ And this is the non-negotiable rule behind the system:
 ```text
 agent-passport/
 ├── contracts/
-├── docs/plans/
+├── docs/plans/        # local planning docs, ignored by git
 ├── scripts/
 ├── src/
 ├── web/
 └── README.md
 ```
+
+## What's implemented now
+
+- Soroban contract for agent registration, verified interactions, relayer-gated writes, and post-interaction ratings
+- worker that verifies Horizon data and submits interaction registration on-chain
+- Hono/x402 provider (**StellarIntel**) with one paid `POST /analyze-account` route
+- local CLI with the canonical command surface:
+  - `agent_register`
+  - `agent_query`
+  - `agent_list`
+  - `agent_rate`
+  - `agent_interactions`
+- Next.js dashboard with live leaderboard and live agent detail pages
+- demo script that exercises the full trust loop on Stellar testnet
+
+## Local setup
+
+1. Copy `.env.example` to `.env`
+2. Fill in:
+   - `CONTRACT_ID`
+   - `RELAYER_SECRET_KEY`
+   - `X402_PAY_TO`
+   - `STELLAR_MCP_URL`
+3. Install root dependencies with `npm install`
+4. Install dashboard dependencies with `npm --prefix web install`
+5. Make sure the local `stellar-mcp` companion is running separately
+
+Required local services for the full demo:
+- Soroban/Stellar testnet access via `STELLAR_RPC_URL` and `STELLAR_HORIZON_URL`
+- a running `stellar-mcp` companion service at `STELLAR_MCP_URL`
+- a funded relayer account on Stellar testnet
+- a deployed AgentPassport contract on the same testnet
+
+Useful commands:
+- `npm run contracts`
+- `npm run worker -- '<json-payload>'`
+- `npm run provider`
+- `npm run cli -- help`
+- `npm run demo`
+- `npm run dashboard`
 
 ## Supporting demo provider
 
@@ -126,15 +169,33 @@ AgentPassport is designed to work alongside the existing Stellar agent/payment s
 - OpenZeppelin relayer / x402 facilitator
 - `stellar-mcp` as ecosystem infrastructure
 
+## What this repository is and is not
+
+The new hackathon work in this repository is:
+- the Soroban contract
+- the worker and relayer-side submission flow
+- the paid **StellarIntel** provider
+- the CLI, dashboard, and demo orchestration
+
+`stellar-mcp` is not the new hackathon implementation in this repo. It is an external companion service we run locally and query for live Stellar account/history data. AgentPassport depends on it for the demo provider's deterministic account analysis, but it remains separate infrastructure.
+
 ## Documentation
 
-Planning and design docs live in `docs/plans/`.
+Planning and design docs were maintained locally during implementation in `docs/plans/`, which is intentionally ignored by git in this repo.
 
-Key files:
-- `docs/plans/2026-04-03-agent-passport-design-spec.md`
-- `docs/plans/2026-04-03-stellar-intel-provider-spec.md`
-- `docs/plans/2026-04-03-agent-passport-storytelling.md`
+The tracked source of truth for the MVP is the implementation itself:
+- `contracts/agent-passport/`
+- `scripts/worker/`
+- `src/provider/`
+- `src/cli/`
+- `scripts/demo-e2e.ts`
+- `web/`
 
 ## Status
 
-Planning/spec phase complete. Implementation not started yet.
+Implementation is in active development and already runnable end-to-end on Stellar testnet.
+
+Current state:
+- contract, worker, provider, CLI, demo script, and dashboard are implemented for the MVP flow
+- the canonical demo has already been exercised against live testnet infrastructure
+- `docs/` planning material remains local-only and is not part of the tracked repository
