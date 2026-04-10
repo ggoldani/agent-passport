@@ -7,10 +7,15 @@ import {
   nativeToScVal,
   Operation,
   scValToNative,
+  StrKey,
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk"
 import { Server } from "@stellar/stellar-sdk/rpc"
+import { x402Client } from "@x402/core/client"
+import { x402HTTPClient } from "@x402/core/http"
+import { createEd25519Signer } from "@x402/stellar"
+import { ExactStellarScheme } from "@x402/stellar/exact/client"
 
 import type { AgentProfile, AgentProfileInput } from "../src/sdk/types"
 import {
@@ -36,6 +41,9 @@ const DEMO_PROVIDER_NAME = "StellarIntel"
 const DEMO_PROVIDER_DESCRIPTION = "Paid Stellar reputation intelligence"
 const DEMO_PROVIDER_TAGS = ["stellar", "reputation", "x402"]
 const DEMO_TIMEOUT_SECONDS = 30
+const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
+const PUBNET_NETWORK_PASSPHRASE = "Public Global Stellar Network ; September 2015"
+const TESTNET_FRIENDBOT_URL = "https://friendbot.stellar.org"
 
 type DemoStepId =
   | "register-agent-a"
@@ -69,6 +77,51 @@ export interface PrePaymentTrustLookupStepResult {
   ownerAddress: string
   trustSnapshot: PrePaymentTrustSnapshot
   decisionHint: string
+  note: string | null
+}
+
+interface AnalyzeAccountSuccessResponse {
+  ok: true
+  code: "account_analysis_ready"
+  address: string
+  summary: string
+  balances: unknown[]
+  trustlines: unknown[]
+  recentActivity: {
+    transactionCount: number
+    paymentCount: number
+    latestTransactionAt: string | null
+  }
+  signals: string[]
+  payment: {
+    x402Version: number
+    network: string
+    amount: string
+    asset: string
+    payTo: string
+    hasTransactionPayload: boolean
+  }
+}
+
+export interface PaidProviderCallStepResult {
+  step: "paid-stellarintel-call"
+  consumerAddress: string
+  analysisAddress: string
+  paymentRequirement: {
+    network: string
+    amount: string
+    asset: string
+    payTo: string
+  }
+  settlement: {
+    payer: string
+    transaction: string
+  }
+  analysis: {
+    summary: string
+    signals: string[]
+    recentActivity: AnalyzeAccountSuccessResponse["recentActivity"]
+  }
   note: string | null
 }
 
@@ -146,6 +199,19 @@ function readOptionalEnvVar(
   return normalized.length === 0 ? undefined : normalized
 }
 
+async function readJsonBody(response: Response): Promise<unknown> {
+  const text = await response.text()
+  if (text.trim().length === 0) {
+    return null
+  }
+
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return text
+  }
+}
+
 function readLocalEnvFile(): Record<string, string> {
   const envPath = resolve(process.cwd(), ".env")
   if (!existsSync(envPath)) {
@@ -201,6 +267,24 @@ function normalizeOptionalAbsoluteUrl(
   }
 
   return normalizedUrl.toString()
+}
+
+function resolveDemoX402Network(
+  networkPassphrase: string,
+): "stellar:testnet" | "stellar:pubnet" {
+  const normalizedPassphrase = networkPassphrase.trim()
+
+  if (normalizedPassphrase === TESTNET_NETWORK_PASSPHRASE) {
+    return "stellar:testnet"
+  }
+
+  if (normalizedPassphrase === PUBNET_NETWORK_PASSPHRASE) {
+    return "stellar:pubnet"
+  }
+
+  throw new Error(
+    `Unsupported STELLAR_NETWORK_PASSPHRASE for demo x402 client: ${JSON.stringify(networkPassphrase)}`,
+  )
 }
 
 function buildProviderProfileInput(
@@ -262,6 +346,45 @@ function buildPrePaymentDecisionHint(profile: AgentProfile): string {
   }
 
   return "Provider has no verified payment history yet on AgentPassport."
+}
+
+function resolveDemoAnalysisAddress(
+  env: Record<string, string | undefined>,
+  config: DemoRuntimeConfig,
+): string {
+  const configuredAddress = readOptionalEnvVar(env, "DEMO_ANALYSIS_ADDRESS")
+  const address = configuredAddress ?? config.providerAddress
+
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    throw new Error(
+      `Invalid DEMO_ANALYSIS_ADDRESS: expected a Stellar public key, got ${JSON.stringify(address)}`,
+    )
+  }
+
+  return address
+}
+
+function isAnalyzeAccountSuccessResponse(
+  value: unknown,
+): value is AnalyzeAccountSuccessResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "ok" in value &&
+    value.ok === true &&
+    "code" in value &&
+    value.code === "account_analysis_ready" &&
+    "summary" in value &&
+    typeof value.summary === "string" &&
+    "signals" in value &&
+    Array.isArray(value.signals) &&
+    "recentActivity" in value &&
+    typeof value.recentActivity === "object" &&
+    value.recentActivity !== null &&
+    "payment" in value &&
+    typeof value.payment === "object" &&
+    value.payment !== null
+  )
 }
 
 function loadDemoRuntimeConfig(
@@ -491,6 +614,130 @@ export async function runPrePaymentTrustLookupStep(
   }
 }
 
+async function fundDemoConsumerOnTestnet(address: string): Promise<void> {
+  const friendbotUrl = new URL(TESTNET_FRIENDBOT_URL)
+  friendbotUrl.searchParams.set("addr", address)
+
+  const response = await fetch(friendbotUrl)
+  if (!response.ok) {
+    const body = await readJsonBody(response)
+    throw new Error(
+      `Failed to fund demo consumer via Friendbot: ${response.status} ${response.statusText} ${JSON.stringify(body)}`,
+    )
+  }
+}
+
+export async function runPaidStellarIntelCallStep(
+  _prePaymentTrustLookupResult: PrePaymentTrustLookupStepResult,
+  processEnv: Record<string, string | undefined> = process.env,
+): Promise<PaidProviderCallStepResult> {
+  const env = loadDemoEnv(processEnv)
+  const config = loadDemoRuntimeConfig(processEnv)
+  const providerUrl = config.providerProfileInput.service_url
+
+  if (providerUrl === null) {
+    throw new Error("PROVIDER_URL is required for the paid demo call")
+  }
+
+  const analyzeAccountUrl =
+    config.providerProfileInput.payment_endpoint ??
+    new URL("/analyze-account", providerUrl).toString()
+  const analysisAddress = resolveDemoAnalysisAddress(env, config)
+  const consumerKeypair = Keypair.random()
+  const network = resolveDemoX402Network(config.networkPassphrase)
+
+  if (network !== "stellar:testnet") {
+    throw new Error(
+      `Demo paid call currently supports Stellar testnet only, got ${JSON.stringify(network)}`,
+    )
+  }
+
+  await fundDemoConsumerOnTestnet(consumerKeypair.publicKey())
+
+  const coreClient = new x402Client().register(
+    "stellar:*",
+    new ExactStellarScheme(
+      createEd25519Signer(consumerKeypair.secret(), network),
+      { url: config.rpcUrl },
+    ),
+  )
+  const client = new x402HTTPClient(coreClient)
+  const requestBody = JSON.stringify({ address: analysisAddress })
+  const baseHeaders = {
+    "content-type": "application/json",
+  }
+
+  const unpaidResponse = await fetch(analyzeAccountUrl, {
+    method: "POST",
+    headers: baseHeaders,
+    body: requestBody,
+  })
+
+  if (unpaidResponse.status !== 402) {
+    const body = await readJsonBody(unpaidResponse)
+    throw new Error(
+      `Expected 402 from unpaid analyze-account request, got ${unpaidResponse.status} ${JSON.stringify(body)}`,
+    )
+  }
+
+  const unpaidBody = await readJsonBody(unpaidResponse)
+  const paymentRequired = client.getPaymentRequiredResponse(
+    (name) => unpaidResponse.headers.get(name),
+    unpaidBody,
+  )
+  const paymentPayload = await client.createPaymentPayload(paymentRequired)
+  const paidResponse = await fetch(analyzeAccountUrl, {
+    method: "POST",
+    headers: {
+      ...baseHeaders,
+      ...client.encodePaymentSignatureHeader(paymentPayload),
+    },
+    body: requestBody,
+  })
+  const paidBody = await readJsonBody(paidResponse)
+
+  if (!paidResponse.ok) {
+    throw new Error(
+      `Paid analyze-account request failed: ${paidResponse.status} ${JSON.stringify(paidBody)}`,
+    )
+  }
+
+  if (!isAnalyzeAccountSuccessResponse(paidBody)) {
+    throw new Error(
+      `Paid analyze-account response did not match expected success shape: ${JSON.stringify(paidBody)}`,
+    )
+  }
+
+  const settlement = client.getPaymentSettleResponse((name) =>
+    paidResponse.headers.get(name),
+  )
+
+  return {
+    step: "paid-stellarintel-call",
+    consumerAddress: consumerKeypair.publicKey(),
+    analysisAddress,
+    paymentRequirement: {
+      network: paidBody.payment.network,
+      amount: paidBody.payment.amount,
+      asset: paidBody.payment.asset,
+      payTo: paidBody.payment.payTo,
+    },
+    settlement: {
+      payer: settlement.payer,
+      transaction: settlement.transaction,
+    },
+    analysis: {
+      summary: paidBody.summary,
+      signals: paidBody.signals,
+      recentActivity: paidBody.recentActivity,
+    },
+    note:
+      analysisAddress === config.providerAddress
+        ? "Using the provider address as the analysis target so the demo returns meaningful live account activity."
+        : null,
+  }
+}
+
 export function buildDemoOutline(): string {
   return [
     "AgentPassport demo sequence:",
@@ -510,11 +757,17 @@ export async function runDemo(
     registrationResult,
     processEnv,
   )
+  const paidProviderCallResult = await runPaidStellarIntelCallStep(
+    prePaymentTrustLookupResult,
+    processEnv,
+  )
   process.stdout.write(`[Step 1/6] ${DEMO_STEPS[0].title}\n`)
   process.stdout.write(`${stringifyDemoValue(registrationResult)}\n`)
   process.stdout.write(`\n[Step 2/6] ${DEMO_STEPS[1].title}\n`)
   process.stdout.write(`${stringifyDemoValue(prePaymentTrustLookupResult)}\n`)
-  process.stdout.write("\nRemaining steps pending: 4\n")
+  process.stdout.write(`\n[Step 3/6] ${DEMO_STEPS[2].title}\n`)
+  process.stdout.write(`${stringifyDemoValue(paidProviderCallResult)}\n`)
+  process.stdout.write("\nRemaining steps pending: 3\n")
 
   return 0
 }
