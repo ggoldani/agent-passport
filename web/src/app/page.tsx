@@ -1,5 +1,7 @@
-import Link from "next/link";
+import { LeaderboardTable } from "../components/LeaderboardTable";
 import { listLeaderboardAgents } from "../lib/api";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const agents = await listLeaderboardAgents();
@@ -21,31 +23,10 @@ export default async function HomePage() {
             <p className="eyebrow">Current state</p>
             <h2 className="section-title">Providers</h2>
           </div>
-          <p className="section-copy">Live contract data will be wired in the next tasks.</p>
+          <p className="section-copy">Live contract data is now read directly from Soroban testnet.</p>
         </div>
 
-        {agents.length === 0 ? (
-          <div className="empty-state">
-            <p className="empty-title">No providers loaded yet.</p>
-            <p className="empty-copy">
-              The dashboard shell is ready. Leaderboard data wiring comes next.
-            </p>
-          </div>
-        ) : (
-          <ul className="list-reset stack-sm">
-            {agents.map((agent) => (
-              <li key={agent.ownerAddress}>
-                <Link className="list-row" href={`/agents/${agent.ownerAddress}`}>
-                  <span>
-                    <strong>{agent.name}</strong>
-                    <span className="row-subtle">{agent.ownerAddress}</span>
-                  </span>
-                  <span className="metric-chip">Score {agent.score}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <LeaderboardTable agents={agents} />
       </section>
     </section>
   );
