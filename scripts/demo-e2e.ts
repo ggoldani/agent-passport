@@ -163,6 +163,19 @@ export interface RatingSubmissionStepResult {
   note: string | null
 }
 
+export interface PostRatingTrustLookupStepResult {
+  step: "post-rating-trust-lookup"
+  ownerAddress: string
+  trustSnapshot: PrePaymentTrustSnapshot
+  gateC: {
+    automaticWorkerFlowTriggered: true
+    verifiedInteractionRegisteredOnChain: true
+    ratingAllowedAfterVerifiedInteraction: true
+    trustProfileUpdatedCorrectly: true
+  }
+  note: string | null
+}
+
 type PaidProviderCallRuntimeResult = PaidProviderCallStepResult & {
   [DEMO_CONSUMER_SECRET_KEY]: string
 }
@@ -1014,6 +1027,62 @@ export async function runRatingSubmissionStep(
   }
 }
 
+export async function runPostRatingTrustLookupStep(
+  automaticWorkerVerificationResult: AutomaticWorkerVerificationStepResult,
+  ratingSubmissionResult: RatingSubmissionStepResult,
+  processEnv: Record<string, string | undefined> = process.env,
+): Promise<PostRatingTrustLookupStepResult> {
+  const config = loadDemoRuntimeConfig(processEnv)
+  const server = new Server(config.rpcUrl)
+  const profile = await getAgentByOwnerAddress(
+    server,
+    config,
+    config.providerAddress,
+  )
+  const trustSnapshot = buildPrePaymentTrustSnapshot(profile)
+
+  if (
+    automaticWorkerVerificationResult.matchedInteraction.txHash !==
+    ratingSubmissionResult.interactionTxHash
+  ) {
+    throw new Error(
+      "Gate C verification failed: rating interaction hash did not match the verified interaction",
+    )
+  }
+
+  if (profile.score !== ratingSubmissionResult.providerScoreAfterRating) {
+    throw new Error(
+      `Gate C verification failed: expected provider score ${ratingSubmissionResult.providerScoreAfterRating}, got ${profile.score}`,
+    )
+  }
+
+  if (
+    profile.verified_interactions_count !==
+    automaticWorkerVerificationResult.verifiedProfileMetrics
+      .verifiedInteractionsCount
+  ) {
+    throw new Error(
+      "Gate C verification failed: verified interaction count drifted after rating submission",
+    )
+  }
+
+  return {
+    step: "post-rating-trust-lookup",
+    ownerAddress: config.providerAddress,
+    trustSnapshot,
+    gateC: {
+      automaticWorkerFlowTriggered: true,
+      verifiedInteractionRegisteredOnChain: true,
+      ratingAllowedAfterVerifiedInteraction: true,
+      trustProfileUpdatedCorrectly: true,
+    },
+    note:
+      profile.score === DEMO_RATING_SCORE
+        ? "Trust profile now reflects both the verified paid interaction and the submitted rating."
+        : null,
+  }
+}
+
 export function buildDemoOutline(): string {
   return [
     "AgentPassport demo sequence:",
@@ -1047,6 +1116,11 @@ export async function runDemo(
     automaticWorkerVerificationResult,
     processEnv,
   )
+  const postRatingTrustLookupResult = await runPostRatingTrustLookupStep(
+    automaticWorkerVerificationResult,
+    ratingSubmissionResult,
+    processEnv,
+  )
   process.stdout.write(`[Step 1/6] ${DEMO_STEPS[0].title}\n`)
   process.stdout.write(`${stringifyDemoValue(registrationResult)}\n`)
   process.stdout.write(`\n[Step 2/6] ${DEMO_STEPS[1].title}\n`)
@@ -1057,7 +1131,9 @@ export async function runDemo(
   process.stdout.write(`${stringifyDemoValue(automaticWorkerVerificationResult)}\n`)
   process.stdout.write(`\n[Step 5/6] ${DEMO_STEPS[4].title}\n`)
   process.stdout.write(`${stringifyDemoValue(ratingSubmissionResult)}\n`)
-  process.stdout.write("\nRemaining steps pending: 1\n")
+  process.stdout.write(`\n[Step 6/6] ${DEMO_STEPS[5].title}\n`)
+  process.stdout.write(`${stringifyDemoValue(postRatingTrustLookupResult)}\n`)
+  process.stdout.write("\nRemaining steps pending: 0\n")
 
   return 0
 }
