@@ -9,6 +9,10 @@ declare const process: {
   }
 }
 
+import { StrKey } from "@stellar/stellar-sdk"
+
+import type { AgentProfileInput, Address } from "../sdk/types"
+
 export const AGENT_PASSPORT_CLI_COMMANDS = [
   "agent_register",
   "agent_query",
@@ -19,6 +23,26 @@ export const AGENT_PASSPORT_CLI_COMMANDS = [
 
 export type AgentPassportCliCommand =
   (typeof AGENT_PASSPORT_CLI_COMMANDS)[number]
+
+interface ParsedOptionArgs {
+  options: Record<string, string>
+  positionals: string[]
+}
+
+interface PreparedAgentRegistration {
+  ownerAddress: Address
+  input: AgentProfileInput
+}
+
+const AGENT_REGISTER_OPTION_NAMES = [
+  "owner-address",
+  "name",
+  "description",
+  "tags",
+  "service-url",
+  "mcp-server-url",
+  "payment-endpoint",
+] as const
 
 function isAgentPassportCliCommand(
   value: string,
@@ -35,12 +59,169 @@ function buildUsage(): string {
   ].join("\n")
 }
 
+function buildAgentRegisterUsage(): string {
+  return [
+    "Usage: npm run cli -- agent_register --owner-address <G...> --name <name> --description <description> [options]",
+    "",
+    "Options:",
+    "  --tags <tag1,tag2>",
+    "  --service-url <https://...>",
+    "  --mcp-server-url <https://...>",
+    "  --payment-endpoint <https://...>",
+  ].join("\n")
+}
+
 function writeStdoutLine(message: string): void {
   process.stdout.write(`${message}\n`)
 }
 
 function writeStderrLine(message: string): void {
   process.stderr.write(`${message}\n`)
+}
+
+function parseOptionArgs(args: string[]): ParsedOptionArgs {
+  const options: Record<string, string> = {}
+  const positionals: string[] = []
+
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
+
+    if (!argument.startsWith("--")) {
+      positionals.push(argument)
+      continue
+    }
+
+    const optionName = argument.slice(2)
+    if (optionName.length === 0) {
+      throw new Error("Expected a long option name after --")
+    }
+
+    const optionValue = args[index + 1]
+    if (optionValue === undefined || optionValue.startsWith("--")) {
+      throw new Error(`Missing value for option: --${optionName}`)
+    }
+
+    if (optionName in options) {
+      throw new Error(`Duplicate option: --${optionName}`)
+    }
+
+    options[optionName] = optionValue
+    index += 1
+  }
+
+  return {
+    options,
+    positionals,
+  }
+}
+
+function readRequiredOption(
+  options: Record<string, string>,
+  optionName: string,
+): string {
+  const value = options[optionName]
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Missing required option: --${optionName}`)
+  }
+
+  return value.trim()
+}
+
+function readOptionalOption(
+  options: Record<string, string>,
+  optionName: string,
+): string | null {
+  const value = options[optionName]
+
+  if (value === undefined) {
+    return null
+  }
+
+  const normalized = value.trim()
+  if (normalized.length === 0) {
+    throw new Error(`Expected --${optionName} to be a non-empty string`)
+  }
+
+  return normalized
+}
+
+function normalizeTags(rawTags: string | undefined): string[] {
+  if (rawTags === undefined) {
+    return []
+  }
+
+  return rawTags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0)
+}
+
+function prepareAgentRegistration(args: string[]): PreparedAgentRegistration {
+  if (args[0] === "help" || args[0] === "--help") {
+    throw new Error(buildAgentRegisterUsage())
+  }
+
+  const { options, positionals } = parseOptionArgs(args)
+
+  if (positionals.length > 0) {
+    throw new Error(
+      `Unexpected positional arguments for agent_register: ${positionals.join(" ")}`,
+    )
+  }
+
+  for (const optionName of Object.keys(options)) {
+    if (!AGENT_REGISTER_OPTION_NAMES.includes(optionName as never)) {
+      throw new Error(`Unknown option for agent_register: --${optionName}`)
+    }
+  }
+
+  const ownerAddress = readRequiredOption(options, "owner-address")
+  if (!StrKey.isValidEd25519PublicKey(ownerAddress)) {
+    throw new Error(`Invalid Stellar owner address: ${ownerAddress}`)
+  }
+
+  return {
+    ownerAddress,
+    input: {
+      name: readRequiredOption(options, "name"),
+      description: readRequiredOption(options, "description"),
+      tags: normalizeTags(options.tags),
+      service_url: readOptionalOption(options, "service-url"),
+      mcp_server_url: readOptionalOption(options, "mcp-server-url"),
+      payment_endpoint: readOptionalOption(options, "payment-endpoint"),
+    },
+  }
+}
+
+function runAgentRegisterCommand(args: string[]): number {
+  try {
+    const registration = prepareAgentRegistration(args)
+
+    writeStdoutLine(
+      JSON.stringify(
+        {
+          ok: true,
+          command: "agent_register",
+          mode: "prepared",
+          ownerAddress: registration.ownerAddress,
+          input: registration.input,
+        },
+        null,
+        2,
+      ),
+    )
+    return 0
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    writeStderrLine(message)
+    if (message !== buildAgentRegisterUsage()) {
+      writeStderrLine("")
+      writeStderrLine(buildAgentRegisterUsage())
+    }
+    return 1
+  }
 }
 
 export function runCli(argv: string[]): number {
@@ -56,6 +237,10 @@ export function runCli(argv: string[]): number {
     writeStderrLine("")
     writeStderrLine(buildUsage())
     return 1
+  }
+
+  if (command === "agent_register") {
+    return runAgentRegisterCommand(argv.slice(1))
   }
 
   writeStderrLine(`Command not implemented yet: ${command}`)
