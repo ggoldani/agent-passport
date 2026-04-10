@@ -2,7 +2,11 @@
 
 **Payment-backed trust layer for AI agents on Stellar**
 
-AgentPassport lets Stellar agents build a public reputation from real paid interactions, so the ecosystem can move from blind trust to verifiable trust.
+AgentPassport lets agents and services on Stellar build a public reputation from real paid interactions, so the ecosystem can move from blind trust to verifiable trust.
+
+It answers a simple question that the agent economy still struggles with:
+
+> Can I trust this provider before I pay it?
 
 ## Why this exists
 
@@ -10,7 +14,7 @@ Stellar already has the payment rails for the agent economy: x402, fast settleme
 
 What it still lacks is trust.
 
-An agent can already pay on Stellar. What it cannot reliably answer is:
+An agent can already pay on Stellar. What it still cannot reliably answer is:
 - Who is this agent?
 - Has it completed real paid work before?
 - How many counterparties have trusted it?
@@ -30,6 +34,15 @@ AgentPassport makes that decision legible by exposing a public trust profile bac
 
 Providers use it to build public trust from real paid work.
 Consumers use it to decide which providers are worth paying.
+
+## How it works
+
+At a high level:
+- a provider registers a public identity on-chain
+- a consumer checks that provider's trust profile
+- the consumer pays via x402
+- AgentPassport verifies the paid interaction and updates the provider's public trust state
+- the consumer can rate the provider only after that verified interaction exists
 
 ## What AgentPassport does
 
@@ -119,12 +132,19 @@ agent-passport/
 - Next.js dashboard with live leaderboard and live agent detail pages
 - demo script that exercises the full trust loop on Stellar testnet
 
+This is not a mock architecture. The MVP has already been exercised end-to-end on Stellar testnet with:
+- real x402 payment flow
+- real on-chain interaction registration
+- real post-interaction rating
+- live dashboard reads from the deployed contract
+
 ## Local setup
 
 1. Copy `.env.example` to `.env`
 2. Fill in:
    - `CONTRACT_ID`
    - `RELAYER_SECRET_KEY`
+   - `PROVIDER_OWNER_SECRET_KEY`
    - `X402_PAY_TO`
    - `STELLAR_MCP_URL`
 3. Install root dependencies with `npm install`
@@ -135,6 +155,7 @@ Required local services for the full demo:
 - Soroban/Stellar testnet access via `STELLAR_RPC_URL` and `STELLAR_HORIZON_URL`
 - a running `stellar-mcp` companion service at `STELLAR_MCP_URL`
 - a funded relayer account on Stellar testnet
+- a funded provider owner account on Stellar testnet
 - a deployed AgentPassport contract on the same testnet
 
 Useful commands:
@@ -147,7 +168,7 @@ Useful commands:
 
 ## Supporting demo provider
 
-This repository also includes the spec and eventual implementation for **StellarIntel**, a minimal paid Stellar account intelligence service used only to make the AgentPassport trust flow concrete and demoable.
+This repository also includes **StellarIntel**, a minimal paid Stellar account intelligence service used to make the AgentPassport trust flow concrete and demoable.
 
 StellarIntel exists to show the full loop clearly:
 - a provider can build trust from real paid work
@@ -160,6 +181,11 @@ StellarIntel is intentionally narrow:
 - real data from the Stellar network
 - deterministic summary logic
 - no LLM required for MVP
+
+In the current implementation:
+- the provider owner identity is separate from the relayer identity
+- the provider receives the x402 payment
+- the relayer only performs the trusted on-chain write after settlement verification
 
 ## Ecosystem context
 
@@ -191,11 +217,26 @@ The tracked source of truth for the MVP is the implementation itself:
 - `scripts/demo-e2e.ts`
 - `web/`
 
+## Public roadmap
+
+Short version of the next phase:
+- [ ] self-serve provider onboarding around `register_agent`
+- [ ] `update_agent` and full profile management
+- [ ] stronger public provider pages and clearer trust tiers
+- [ ] search, filters, and ranking for provider discovery
+- [ ] trust analytics plus lightweight business analytics for providers
+- [ ] read-first trust API for integrators and ecosystem apps
+- [ ] premium verification and curation layer
+- [ ] broader ecosystem distribution through registries, directories, and marketplaces
+
+The full product roadmap is maintained locally and expands this into GTM, monetization, distribution, cold-start, and proof-of-value strategy.
+
 ## Status
 
-Implementation is in active development and already runnable end-to-end on Stellar testnet.
+AgentPassport is now a validated MVP that is already runnable end-to-end on Stellar testnet.
 
 Current state:
 - contract, worker, provider, CLI, demo script, and dashboard are implemented for the MVP flow
 - the canonical demo has already been exercised against live testnet infrastructure
+- the provider identity used in the demo is now **StellarIntel**, not a relayer bootstrap placeholder
 - `docs/` planning material remains local-only and is not part of the tracked repository
