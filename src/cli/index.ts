@@ -38,6 +38,10 @@ interface PreparedAgentQuery {
   ownerAddress: Address
 }
 
+interface PreparedAgentList {
+  limit: null
+}
+
 const AGENT_REGISTER_OPTION_NAMES = [
   "owner-address",
   "name",
@@ -80,6 +84,12 @@ function buildAgentRegisterUsage(): string {
 function buildAgentQueryUsage(): string {
   return [
     "Usage: npm run cli -- agent_query --owner-address <G...>",
+  ].join("\n")
+}
+
+function buildAgentListUsage(): string {
+  return [
+    "Usage: npm run cli -- agent_list",
   ].join("\n")
 }
 
@@ -238,6 +248,30 @@ function prepareAgentQuery(args: string[]): PreparedAgentQuery {
   }
 }
 
+function prepareAgentList(args: string[]): PreparedAgentList {
+  if (args[0] === "help" || args[0] === "--help") {
+    throw new Error(buildAgentListUsage())
+  }
+
+  const { options, positionals } = parseOptionArgs(args)
+
+  if (Object.keys(options).length > 0) {
+    throw new Error(
+      `Unknown option for agent_list: --${Object.keys(options)[0]}`,
+    )
+  }
+
+  if (positionals.length > 0) {
+    throw new Error(
+      `Unexpected positional arguments for agent_list: ${positionals.join(" ")}`,
+    )
+  }
+
+  return {
+    limit: null,
+  }
+}
+
 function runAgentRegisterCommand(args: string[]): number {
   try {
     const registration = prepareAgentRegistration(args)
@@ -297,6 +331,35 @@ function runAgentQueryCommand(args: string[]): number {
   }
 }
 
+function runAgentListCommand(args: string[]): number {
+  try {
+    const list = prepareAgentList(args)
+
+    writeStdoutLine(
+      JSON.stringify(
+        {
+          ok: true,
+          command: "agent_list",
+          mode: "prepared",
+          limit: list.limit,
+        },
+        null,
+        2,
+      ),
+    )
+    return 0
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    writeStderrLine(message)
+    if (message !== buildAgentListUsage()) {
+      writeStderrLine("")
+      writeStderrLine(buildAgentListUsage())
+    }
+    return 1
+  }
+}
+
 export function runCli(argv: string[]): number {
   const command = argv[0]
 
@@ -318,6 +381,10 @@ export function runCli(argv: string[]): number {
 
   if (command === "agent_query") {
     return runAgentQueryCommand(argv.slice(1))
+  }
+
+  if (command === "agent_list") {
+    return runAgentListCommand(argv.slice(1))
   }
 
   writeStderrLine(`Command not implemented yet: ${command}`)
