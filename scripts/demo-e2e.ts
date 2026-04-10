@@ -55,6 +55,23 @@ export interface AgentRegistrationStepResult {
   profile: AgentProfile
 }
 
+export interface PrePaymentTrustSnapshot {
+  name: string
+  score: number
+  verifiedInteractionsCount: bigint
+  totalEconomicVolume: bigint
+  uniqueCounterpartiesCount: bigint
+  lastInteractionTimestamp: bigint
+}
+
+export interface PrePaymentTrustLookupStepResult {
+  step: "pre-payment-trust-lookup"
+  ownerAddress: string
+  trustSnapshot: PrePaymentTrustSnapshot
+  decisionHint: string
+  note: string | null
+}
+
 interface DemoRuntimeConfig extends RelayerConfig {
   providerAddress: string
   providerProfileInput: AgentProfileInput
@@ -224,6 +241,27 @@ function profileMatchesInput(
     profile.tags.length === input.tags.length &&
     profile.tags.every((tag, index) => tag === input.tags[index])
   )
+}
+
+function buildPrePaymentTrustSnapshot(
+  profile: AgentProfile,
+): PrePaymentTrustSnapshot {
+  return {
+    name: profile.name,
+    score: profile.score,
+    verifiedInteractionsCount: profile.verified_interactions_count,
+    totalEconomicVolume: profile.total_economic_volume,
+    uniqueCounterpartiesCount: profile.unique_counterparties_count,
+    lastInteractionTimestamp: profile.last_interaction_timestamp,
+  }
+}
+
+function buildPrePaymentDecisionHint(profile: AgentProfile): string {
+  if (profile.verified_interactions_count > 0n) {
+    return "Provider already has verified payment history on AgentPassport."
+  }
+
+  return "Provider has no verified payment history yet on AgentPassport."
 }
 
 function loadDemoRuntimeConfig(
@@ -429,6 +467,30 @@ export async function runAgentRegistrationStep(
   }
 }
 
+export async function runPrePaymentTrustLookupStep(
+  registrationResult: AgentRegistrationStepResult,
+  processEnv: Record<string, string | undefined> = process.env,
+): Promise<PrePaymentTrustLookupStepResult> {
+  const config = loadDemoRuntimeConfig(processEnv)
+  const server = new Server(config.rpcUrl)
+  const profile = await getAgentByOwnerAddress(
+    server,
+    config,
+    registrationResult.ownerAddress,
+  )
+
+  return {
+    step: "pre-payment-trust-lookup",
+    ownerAddress: registrationResult.ownerAddress,
+    trustSnapshot: buildPrePaymentTrustSnapshot(profile),
+    decisionHint: buildPrePaymentDecisionHint(profile),
+    note:
+      registrationResult.note === null
+        ? null
+        : `Registration step note: ${registrationResult.note}`,
+  }
+}
+
 export function buildDemoOutline(): string {
   return [
     "AgentPassport demo sequence:",
@@ -444,9 +506,15 @@ export async function runDemo(
   process.stdout.write(`${buildDemoOutline()}\n\n`)
 
   const registrationResult = await runAgentRegistrationStep(processEnv)
+  const prePaymentTrustLookupResult = await runPrePaymentTrustLookupStep(
+    registrationResult,
+    processEnv,
+  )
   process.stdout.write(`[Step 1/6] ${DEMO_STEPS[0].title}\n`)
   process.stdout.write(`${stringifyDemoValue(registrationResult)}\n`)
-  process.stdout.write("\nRemaining steps pending: 5\n")
+  process.stdout.write(`\n[Step 2/6] ${DEMO_STEPS[1].title}\n`)
+  process.stdout.write(`${stringifyDemoValue(prePaymentTrustLookupResult)}\n`)
+  process.stdout.write("\nRemaining steps pending: 4\n")
 
   return 0
 }
