@@ -230,8 +230,6 @@ Short version of the next phase:
 - [ ] premium verification and curation layer
 - [ ] broader ecosystem distribution through registries, directories, and marketplaces
 
-The full product roadmap is maintained locally and expands this into GTM, monetization, distribution, cold-start, and proof-of-value strategy.
-
 ## Status
 
 AgentPassport is now a validated MVP that is already runnable end-to-end on Stellar testnet.
@@ -240,4 +238,3 @@ Current state:
 - contract, worker, provider, CLI, demo script, and dashboard are implemented for the MVP flow
 - the canonical demo has already been exercised against live testnet infrastructure
 - the provider identity used in the demo is now **StellarIntel**, not a relayer bootstrap placeholder
-- `docs/` planning material remains local-only and is not part of the tracked repository
