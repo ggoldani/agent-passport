@@ -111,7 +111,6 @@ And this is the non-negotiable rule behind the system:
 ```text
 agent-passport/
 ├── contracts/
-├── docs/plans/        # local planning docs, ignored by git
 ├── scripts/
 ├── src/
 ├── web/
@@ -149,7 +148,9 @@ This is not a mock architecture. The MVP has already been exercised end-to-end o
    - `STELLAR_MCP_URL`
 3. Install root dependencies with `npm install`
 4. Install dashboard dependencies with `npm --prefix web install`
-5. Make sure the local `stellar-mcp` companion is running separately
+5. Clone and run the companion service from:
+   - `https://github.com/ggoldani/stellar-mcp`
+6. Point `STELLAR_MCP_URL` to that running instance
 
 Required local services for the full demo:
 - Soroban/Stellar testnet access via `STELLAR_RPC_URL` and `STELLAR_HORIZON_URL`
