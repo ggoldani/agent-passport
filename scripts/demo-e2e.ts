@@ -181,6 +181,7 @@ type PaidProviderCallRuntimeResult = PaidProviderCallStepResult & {
 }
 
 interface DemoRuntimeConfig extends RelayerConfig {
+  providerOwnerSecretKey: string
   providerAddress: string
   providerProfileInput: AgentProfileInput
 }
@@ -481,18 +482,30 @@ function loadDemoRuntimeConfig(
 ): DemoRuntimeConfig {
   const env = loadDemoEnv(processEnv)
   const relayerConfig = loadRelayerConfig(env)
-  const relayerKeypair = Keypair.fromSecret(relayerConfig.relayerSecretKey)
-  const providerAddress = relayerKeypair.publicKey()
+  const providerOwnerSecretKey = readOptionalEnvVar(
+    env,
+    "PROVIDER_OWNER_SECRET_KEY",
+  )
+
+  if (providerOwnerSecretKey === undefined) {
+    throw new Error(
+      "Missing required env var for demo provider identity: PROVIDER_OWNER_SECRET_KEY",
+    )
+  }
+
+  const providerOwnerKeypair = Keypair.fromSecret(providerOwnerSecretKey)
+  const providerAddress = providerOwnerKeypair.publicKey()
   const payTo = readOptionalEnvVar(env, "X402_PAY_TO")
 
   if (payTo !== undefined && payTo !== providerAddress) {
     throw new Error(
-      `Demo registration requires X402_PAY_TO to match the relayer public key, got ${JSON.stringify(payTo)} for ${JSON.stringify(providerAddress)}`,
+      `Demo registration requires X402_PAY_TO to match the provider public key, got ${JSON.stringify(payTo)} for ${JSON.stringify(providerAddress)}`,
     )
   }
 
   return {
     ...relayerConfig,
+    providerOwnerSecretKey,
     providerAddress,
     providerProfileInput: buildProviderProfileInput(env),
   }
@@ -517,17 +530,17 @@ function buildAgentProfileInputScVal(input: AgentProfileInput): xdr.ScVal {
     })
 
   return xdr.ScVal.scvMap([
-    stringEntry("name", input.name),
     stringEntry("description", input.description),
+    optionalStringEntry("mcp_server_url", input.mcp_server_url),
+    stringEntry("name", input.name),
+    optionalStringEntry("payment_endpoint", input.payment_endpoint),
+    optionalStringEntry("service_url", input.service_url),
     new xdr.ScMapEntry({
       key: xdr.ScVal.scvSymbol("tags"),
       val: xdr.ScVal.scvVec(
         input.tags.map((tag) => nativeToScVal(tag, { type: "string" })),
       ),
     }),
-    optionalStringEntry("service_url", input.service_url),
-    optionalStringEntry("mcp_server_url", input.mcp_server_url),
-    optionalStringEntry("payment_endpoint", input.payment_endpoint),
   ])
 }
 
@@ -609,7 +622,7 @@ async function submitAgentRegistration(
   server: Server,
   config: DemoRuntimeConfig,
 ): Promise<string> {
-  const relayerKeypair = Keypair.fromSecret(config.relayerSecretKey)
+  const providerOwnerKeypair = Keypair.fromSecret(config.providerOwnerSecretKey)
   const sourceAccount = await server.getAccount(config.providerAddress)
   const transaction = new TransactionBuilder(sourceAccount, {
     fee: BASE_FEE,
@@ -629,7 +642,7 @@ async function submitAgentRegistration(
     .build()
 
   const preparedTransaction = await server.prepareTransaction(transaction)
-  preparedTransaction.sign(relayerKeypair)
+  preparedTransaction.sign(providerOwnerKeypair)
 
   const submission = await server.sendTransaction(preparedTransaction)
   if (submission.status === "ERROR") {
