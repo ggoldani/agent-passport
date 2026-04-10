@@ -211,6 +211,13 @@ impl AgentPassport {
         interactions
     }
 
+    pub fn get_rating(
+        env: Env,
+        interaction_tx_hash: soroban_sdk::BytesN<32>,
+    ) -> Option<RatingRecord> {
+        read_rating(&env, &interaction_tx_hash)
+    }
+
     pub fn submit_rating(env: Env, rating: RatingInput) {
         rating.consumer_address.require_auth();
 

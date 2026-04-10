@@ -704,3 +704,70 @@ fn submit_rating_updates_provider_score() {
     let profile = client.get_agent(&provider);
     assert_eq!(profile.score, 80);
 }
+
+#[test]
+fn get_rating_returns_persisted_rating_record() {
+    let env = test_env();
+    let contract_id = env.register(AgentPassport, ());
+    let client = AgentPassportClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let authorized_relayer = Address::generate(&env);
+    let provider = Address::generate(&env);
+    let consumer = Address::generate(&env);
+    let provider_input = AgentProfileInput {
+        name: String::from_str(&env, "provider"),
+        description: String::from_str(&env, "Provider profile"),
+        tags: Vec::from_array(&env, [String::from_str(&env, "provider")]),
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+    let interaction = InteractionRecord {
+        provider_address: provider.clone(),
+        consumer_address: consumer.clone(),
+        amount: 100,
+        tx_hash: BytesN::from_array(&env, &[9; 32]),
+        timestamp: 900,
+        service_label: Some(String::from_str(&env, "rating-lookup")),
+    };
+    let rating = RatingInput {
+        provider_address: provider.clone(),
+        consumer_address: consumer.clone(),
+        interaction_tx_hash: interaction.tx_hash.clone(),
+        score: 90,
+    };
+
+    client.init(&admin, &authorized_relayer);
+    env.mock_all_auths();
+    client.register_agent(&provider, &provider_input);
+    client
+        .mock_auths(&[MockAuth {
+            address: &authorized_relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&authorized_relayer, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&authorized_relayer, &interaction);
+    client
+        .mock_auths(&[MockAuth {
+            address: &consumer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "submit_rating",
+                args: (&rating,).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .submit_rating(&rating);
+
+    let record = client
+        .get_rating(&interaction.tx_hash)
+        .expect("rating record should exist");
+    assert_eq!(record.provider_address, provider);
+    assert_eq!(record.consumer_address, consumer);
+    assert_eq!(record.interaction_tx_hash, interaction.tx_hash);
+    assert_eq!(record.score, 90);
+}
