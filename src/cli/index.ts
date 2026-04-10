@@ -11,7 +11,7 @@ declare const process: {
 
 import { StrKey } from "@stellar/stellar-sdk"
 
-import type { AgentProfileInput, Address } from "../sdk/types"
+import type { AgentProfileInput, Address, RatingInput } from "../sdk/types"
 
 export const AGENT_PASSPORT_CLI_COMMANDS = [
   "agent_register",
@@ -42,6 +42,10 @@ interface PreparedAgentList {
   limit: null
 }
 
+interface PreparedAgentRating {
+  rating: RatingInput
+}
+
 const AGENT_REGISTER_OPTION_NAMES = [
   "owner-address",
   "name",
@@ -53,6 +57,12 @@ const AGENT_REGISTER_OPTION_NAMES = [
 ] as const
 
 const AGENT_QUERY_OPTION_NAMES = ["owner-address"] as const
+const AGENT_RATE_OPTION_NAMES = [
+  "provider-address",
+  "consumer-address",
+  "interaction-tx-hash",
+  "score",
+] as const
 
 function isAgentPassportCliCommand(
   value: string,
@@ -90,6 +100,12 @@ function buildAgentQueryUsage(): string {
 function buildAgentListUsage(): string {
   return [
     "Usage: npm run cli -- agent_list",
+  ].join("\n")
+}
+
+function buildAgentRateUsage(): string {
+  return [
+    "Usage: npm run cli -- agent_rate --provider-address <G...> --consumer-address <G...> --interaction-tx-hash <64-hex> --score <0-100>",
   ].join("\n")
 }
 
@@ -181,7 +197,7 @@ function normalizeTags(rawTags: string | undefined): string[] {
 
 function parseCommandOptions(
   args: string[],
-  commandName: "agent_register" | "agent_query",
+  commandName: "agent_register" | "agent_query" | "agent_rate",
   allowedOptionNames: readonly string[],
 ) {
   const { options, positionals } = parseOptionArgs(args)
@@ -209,6 +225,46 @@ function parseOwnerAddressOption(options: Record<string, string>): Address {
   }
 
   return ownerAddress
+}
+
+function parseStellarAddressOption(
+  options: Record<string, string>,
+  optionName: string,
+): Address {
+  const address = readRequiredOption(options, optionName)
+
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    throw new Error(`Invalid Stellar address for --${optionName}: ${address}`)
+  }
+
+  return address
+}
+
+function parseInteractionTxHashOption(options: Record<string, string>): string {
+  const txHash = readRequiredOption(options, "interaction-tx-hash").toLowerCase()
+
+  if (!/^[a-f0-9]{64}$/.test(txHash)) {
+    throw new Error(
+      `Invalid interaction tx hash: expected a 64-character hex string, got ${txHash}`,
+    )
+  }
+
+  return txHash
+}
+
+function parseScoreOption(options: Record<string, string>): number {
+  const rawScore = readRequiredOption(options, "score")
+
+  if (!/^[0-9]+$/.test(rawScore)) {
+    throw new Error(`Invalid score: expected an integer in 0..100, got ${rawScore}`)
+  }
+
+  const score = Number.parseInt(rawScore, 10)
+  if (score < 0 || score > 100) {
+    throw new Error(`Invalid score: expected an integer in 0..100, got ${rawScore}`)
+  }
+
+  return score
 }
 
 function prepareAgentRegistration(args: string[]): PreparedAgentRegistration {
@@ -269,6 +325,23 @@ function prepareAgentList(args: string[]): PreparedAgentList {
 
   return {
     limit: null,
+  }
+}
+
+function prepareAgentRating(args: string[]): PreparedAgentRating {
+  if (args[0] === "help" || args[0] === "--help") {
+    throw new Error(buildAgentRateUsage())
+  }
+
+  const options = parseCommandOptions(args, "agent_rate", AGENT_RATE_OPTION_NAMES)
+
+  return {
+    rating: {
+      provider_address: parseStellarAddressOption(options, "provider-address"),
+      consumer_address: parseStellarAddressOption(options, "consumer-address"),
+      interaction_tx_hash: parseInteractionTxHashOption(options),
+      score: parseScoreOption(options),
+    },
   }
 }
 
@@ -360,6 +433,35 @@ function runAgentListCommand(args: string[]): number {
   }
 }
 
+function runAgentRateCommand(args: string[]): number {
+  try {
+    const rating = prepareAgentRating(args)
+
+    writeStdoutLine(
+      JSON.stringify(
+        {
+          ok: true,
+          command: "agent_rate",
+          mode: "prepared",
+          rating: rating.rating,
+        },
+        null,
+        2,
+      ),
+    )
+    return 0
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    writeStderrLine(message)
+    if (message !== buildAgentRateUsage()) {
+      writeStderrLine("")
+      writeStderrLine(buildAgentRateUsage())
+    }
+    return 1
+  }
+}
+
 export function runCli(argv: string[]): number {
   const command = argv[0]
 
@@ -385,6 +487,10 @@ export function runCli(argv: string[]): number {
 
   if (command === "agent_list") {
     return runAgentListCommand(argv.slice(1))
+  }
+
+  if (command === "agent_rate") {
+    return runAgentRateCommand(argv.slice(1))
   }
 
   writeStderrLine(`Command not implemented yet: ${command}`)
