@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+
 import {
   BASE_FEE,
   Keypair,
@@ -15,7 +17,7 @@ import {
   type AgentPassportReadMethodName,
   type AgentPassportTransport,
 } from "../../../src/sdk/agent-passport";
-import type { AgentProfile } from "../../../src/sdk/types";
+import type { AgentProfile, InteractionRecord } from "../../../src/sdk/types";
 import type { AgentDashboardDetail, AgentLeaderboardEntry } from "../types";
 
 type DashboardRuntimeConfig = {
@@ -24,6 +26,8 @@ type DashboardRuntimeConfig = {
   rpcUrl: string;
   sourceAddress: string;
 };
+
+const MAX_RECENT_INTERACTIONS = 10;
 
 class ReadOnlyAgentPassportTransport implements AgentPassportTransport {
   private readonly config: DashboardRuntimeConfig;
@@ -139,11 +143,46 @@ function bigintToSafeNumber(value: bigint, field: string): number {
   return Number(value);
 }
 
+function normalizeOptionalString(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length === 0 ? null : normalized;
+}
+
+function formatTimestamp(timestamp: bigint): string | null {
+  if (timestamp <= 0n) {
+    return null;
+  }
+
+  return new Date(Number(timestamp) * 1000).toISOString();
+}
+
+function normalizeBytes32ToHex(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim().toLowerCase();
+  }
+
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString("hex");
+  }
+
+  if (Array.isArray(value) && value.every((item) => Number.isInteger(item))) {
+    return Buffer.from(value).toString("hex");
+  }
+
+  throw new Error(
+    `Invalid tx hash: expected hex string or byte array, got ${Object.prototype.toString.call(value)}`
+  );
+}
+
 function mapProfileToLeaderboardEntry(profile: AgentProfile): AgentLeaderboardEntry {
   return {
     ownerAddress: profile.owner_address,
     name: profile.name,
-    description: profile.description.length === 0 ? null : profile.description,
+    description: normalizeOptionalString(profile.description),
     score: profile.score,
     verifiedInteractionsCount: bigintToSafeNumber(
       profile.verified_interactions_count,
@@ -181,6 +220,55 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
 export async function getAgentDetail(
   ownerAddress: string
 ): Promise<AgentDashboardDetail | null> {
-  void ownerAddress;
-  return null;
+  const client = createAgentPassportClient();
+
+  let profile: AgentProfile;
+  try {
+    profile = await client.getAgent(ownerAddress);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("get_agent")) {
+      return null;
+    }
+
+    throw error;
+  }
+
+  const interactions = await client.listAgentInteractions(ownerAddress);
+  const recentInteractions = [...interactions]
+    .sort((left, right) => {
+      if (right.timestamp === left.timestamp) {
+        return 0;
+      }
+
+      return right.timestamp > left.timestamp ? 1 : -1;
+    })
+    .slice(0, MAX_RECENT_INTERACTIONS);
+
+  return {
+    agent: {
+      ...mapProfileToLeaderboardEntry(profile),
+      tags: profile.tags,
+      serviceUrl: normalizeOptionalString(profile.service_url),
+      mcpServerUrl: normalizeOptionalString(profile.mcp_server_url),
+      paymentEndpoint: normalizeOptionalString(profile.payment_endpoint),
+      uniqueCounterpartiesCount: bigintToSafeNumber(
+        profile.unique_counterparties_count,
+        "unique_counterparties_count"
+      ),
+      lastInteractionTimestamp: formatTimestamp(profile.last_interaction_timestamp),
+    },
+    recentInteractions: recentInteractions.map(mapInteractionSummary),
+  };
+}
+
+function mapInteractionSummary(interaction: InteractionRecord) {
+  return {
+    txHash: normalizeBytes32ToHex(interaction.tx_hash),
+    consumerAddress: interaction.consumer_address,
+    amount: interaction.amount.toString(),
+    asset: "XLM",
+    occurredAt: formatTimestamp(interaction.timestamp) ?? "Unknown time",
+    ratingScore: null,
+  };
 }

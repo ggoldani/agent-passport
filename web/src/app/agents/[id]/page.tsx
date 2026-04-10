@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AgentProfileCard } from "../../../components/AgentProfileCard";
+import { RecentInteractions } from "../../../components/RecentInteractions";
 import { getAgentDetail } from "../../../lib/api";
 
 type AgentDetailPageProps = {
@@ -6,6 +8,8 @@ type AgentDetailPageProps = {
     id: string;
   }>;
 };
+
+export const dynamic = "force-dynamic";
 
 export default async function AgentDetailPage({ params }: AgentDetailPageProps) {
   const { id } = await params;
@@ -31,18 +35,11 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
 
   return (
     <section className="stack-lg">
-      <div className="panel stack-sm">
-        <p className="eyebrow">Agent detail</p>
-        <h1 className="section-title">{detail.agent.name}</h1>
-        <p className="section-copy">{detail.agent.description || "No description provided."}</p>
-      </div>
-
-      <div className="panel stack-sm">
-        <h2 className="section-title">Recent interactions</h2>
-        {detail.recentInteractions.length === 0 ? (
-          <p className="section-copy">Interaction data has not been wired into the dashboard yet.</p>
-        ) : null}
-      </div>
+      <Link className="text-link" href="/">
+        Back to leaderboard
+      </Link>
+      <AgentProfileCard agent={detail.agent} />
+      <RecentInteractions interactions={detail.recentInteractions} />
     </section>
   );
 }
