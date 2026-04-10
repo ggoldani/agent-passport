@@ -17,7 +17,11 @@ import { x402HTTPClient } from "@x402/core/http"
 import { createEd25519Signer } from "@x402/stellar"
 import { ExactStellarScheme } from "@x402/stellar/exact/client"
 
-import type { AgentProfile, AgentProfileInput } from "../src/sdk/types"
+import type {
+  AgentProfile,
+  AgentProfileInput,
+  InteractionRecord,
+} from "../src/sdk/types"
 import {
   loadRelayerConfig,
   type RelayerConfig,
@@ -121,6 +125,27 @@ export interface PaidProviderCallStepResult {
     summary: string
     signals: string[]
     recentActivity: AnalyzeAccountSuccessResponse["recentActivity"]
+  }
+  note: string | null
+}
+
+export interface AutomaticWorkerVerificationStepResult {
+  step: "automatic-worker-verification"
+  providerAddress: string
+  expectedTxHash: string
+  interactionCount: number
+  verifiedProfileMetrics: {
+    verifiedInteractionsCount: bigint
+    totalEconomicVolume: bigint
+    uniqueCounterpartiesCount: bigint
+    lastInteractionTimestamp: bigint
+  }
+  matchedInteraction: {
+    consumerAddress: string
+    txHash: string
+    amount: bigint
+    timestamp: bigint
+    serviceLabel: string | null
   }
   note: string | null
 }
@@ -364,6 +389,24 @@ function resolveDemoAnalysisAddress(
   return address
 }
 
+function normalizeBytes32ToHex(value: unknown, fieldName: string): string {
+  if (typeof value === "string") {
+    return value.trim().toLowerCase()
+  }
+
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value).toString("hex")
+  }
+
+  if (Array.isArray(value) && value.every((item) => Number.isInteger(item))) {
+    return Buffer.from(value).toString("hex")
+  }
+
+  throw new Error(
+    `Invalid ${fieldName}: expected hex string or byte array, got ${Object.prototype.toString.call(value)}`,
+  )
+}
+
 function isAnalyzeAccountSuccessResponse(
   value: unknown,
 ): value is AnalyzeAccountSuccessResponse {
@@ -485,6 +528,23 @@ async function listAgents(
   }
 
   return result as AgentProfile[]
+}
+
+async function listAgentInteractions(
+  server: Server,
+  config: DemoRuntimeConfig,
+  providerAddress: string,
+): Promise<InteractionRecord[]> {
+  const result = await readContractMethod(server, config, "list_agent_interactions", [
+    nativeToScVal(providerAddress, { type: "address" }),
+  ])
+  if (!Array.isArray(result)) {
+    throw new Error(
+      `Invalid list_agent_interactions result: expected array, got ${JSON.stringify(result)}`,
+    )
+  }
+
+  return result as InteractionRecord[]
 }
 
 async function getAgentByOwnerAddress(
@@ -738,6 +798,58 @@ export async function runPaidStellarIntelCallStep(
   }
 }
 
+export async function runAutomaticWorkerVerificationStep(
+  paidProviderCallResult: PaidProviderCallStepResult,
+  processEnv: Record<string, string | undefined> = process.env,
+): Promise<AutomaticWorkerVerificationStepResult> {
+  const config = loadDemoRuntimeConfig(processEnv)
+  const server = new Server(config.rpcUrl)
+  const [profile, interactions] = await Promise.all([
+    getAgentByOwnerAddress(server, config, config.providerAddress),
+    listAgentInteractions(server, config, config.providerAddress),
+  ])
+
+  const matchedInteraction = interactions.find(
+    (interaction) =>
+      normalizeBytes32ToHex(interaction.tx_hash, "interaction.tx_hash") ===
+        paidProviderCallResult.settlement.transaction.toLowerCase() &&
+      interaction.consumer_address === paidProviderCallResult.consumerAddress,
+  )
+
+  if (matchedInteraction === undefined) {
+    throw new Error(
+      `Worker verification failed: no on-chain interaction matched tx ${paidProviderCallResult.settlement.transaction} for consumer ${paidProviderCallResult.consumerAddress}`,
+    )
+  }
+
+  return {
+    step: "automatic-worker-verification",
+    providerAddress: config.providerAddress,
+    expectedTxHash: paidProviderCallResult.settlement.transaction,
+    interactionCount: interactions.length,
+    verifiedProfileMetrics: {
+      verifiedInteractionsCount: profile.verified_interactions_count,
+      totalEconomicVolume: profile.total_economic_volume,
+      uniqueCounterpartiesCount: profile.unique_counterparties_count,
+      lastInteractionTimestamp: profile.last_interaction_timestamp,
+    },
+    matchedInteraction: {
+      consumerAddress: matchedInteraction.consumer_address,
+      txHash: normalizeBytes32ToHex(
+        matchedInteraction.tx_hash,
+        "interaction.tx_hash",
+      ),
+      amount: matchedInteraction.amount,
+      timestamp: matchedInteraction.timestamp,
+      serviceLabel: matchedInteraction.service_label,
+    },
+    note:
+      matchedInteraction.consumer_address === paidProviderCallResult.settlement.payer
+        ? null
+        : "Settlement payer and matched on-chain consumer differed; review provider handoff assumptions.",
+  }
+}
+
 export function buildDemoOutline(): string {
   return [
     "AgentPassport demo sequence:",
@@ -761,13 +873,20 @@ export async function runDemo(
     prePaymentTrustLookupResult,
     processEnv,
   )
+  const automaticWorkerVerificationResult =
+    await runAutomaticWorkerVerificationStep(
+      paidProviderCallResult,
+      processEnv,
+    )
   process.stdout.write(`[Step 1/6] ${DEMO_STEPS[0].title}\n`)
   process.stdout.write(`${stringifyDemoValue(registrationResult)}\n`)
   process.stdout.write(`\n[Step 2/6] ${DEMO_STEPS[1].title}\n`)
   process.stdout.write(`${stringifyDemoValue(prePaymentTrustLookupResult)}\n`)
   process.stdout.write(`\n[Step 3/6] ${DEMO_STEPS[2].title}\n`)
   process.stdout.write(`${stringifyDemoValue(paidProviderCallResult)}\n`)
-  process.stdout.write("\nRemaining steps pending: 3\n")
+  process.stdout.write(`\n[Step 4/6] ${DEMO_STEPS[3].title}\n`)
+  process.stdout.write(`${stringifyDemoValue(automaticWorkerVerificationResult)}\n`)
+  process.stdout.write("\nRemaining steps pending: 2\n")
 
   return 0
 }
