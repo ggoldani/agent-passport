@@ -45,9 +45,11 @@ const DEMO_PROVIDER_NAME = "StellarIntel"
 const DEMO_PROVIDER_DESCRIPTION = "Paid Stellar reputation intelligence"
 const DEMO_PROVIDER_TAGS = ["stellar", "reputation", "x402"]
 const DEMO_TIMEOUT_SECONDS = 30
+const DEMO_RATING_SCORE = 90
 const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
 const PUBNET_NETWORK_PASSPHRASE = "Public Global Stellar Network ; September 2015"
 const TESTNET_FRIENDBOT_URL = "https://friendbot.stellar.org"
+const DEMO_CONSUMER_SECRET_KEY = Symbol("demoConsumerSecretKey")
 
 type DemoStepId =
   | "register-agent-a"
@@ -148,6 +150,21 @@ export interface AutomaticWorkerVerificationStepResult {
     serviceLabel: string | null
   }
   note: string | null
+}
+
+export interface RatingSubmissionStepResult {
+  step: "rating-submission"
+  scoreSubmitted: number
+  interactionTxHash: string
+  ratingSubmissionHash: string
+  providerScoreAfterRating: number
+  providerVerifiedInteractionsCount: bigint
+  consumerAddress: string
+  note: string | null
+}
+
+type PaidProviderCallRuntimeResult = PaidProviderCallStepResult & {
+  [DEMO_CONSUMER_SECRET_KEY]: string
 }
 
 interface DemoRuntimeConfig extends RelayerConfig {
@@ -310,6 +327,22 @@ function resolveDemoX402Network(
   throw new Error(
     `Unsupported STELLAR_NETWORK_PASSPHRASE for demo x402 client: ${JSON.stringify(networkPassphrase)}`,
   )
+}
+
+function getDemoConsumerSecretKey(
+  result: PaidProviderCallStepResult,
+): string {
+  const secretKey = (result as Partial<PaidProviderCallRuntimeResult>)[
+    DEMO_CONSUMER_SECRET_KEY
+  ]
+
+  if (typeof secretKey !== "string" || secretKey.length === 0) {
+    throw new Error(
+      "Paid provider call result is missing the hidden demo consumer secret key",
+    )
+  }
+
+  return secretKey
 }
 
 function buildProviderProfileInput(
@@ -604,6 +637,90 @@ async function submitAgentRegistration(
   return submission.hash
 }
 
+function buildRatingInputScVal(
+  providerAddress: string,
+  consumerAddress: string,
+  interactionTxHash: string,
+  score: number,
+): xdr.ScVal {
+  const normalizedTxHash = normalizeBytes32ToHex(
+    interactionTxHash,
+    "rating.interaction_tx_hash",
+  )
+
+  return xdr.ScVal.scvMap([
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("consumer_address"),
+      val: nativeToScVal(consumerAddress, { type: "address" }),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("interaction_tx_hash"),
+      val: xdr.ScVal.scvBytes(Buffer.from(normalizedTxHash, "hex")),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("provider_address"),
+      val: nativeToScVal(providerAddress, { type: "address" }),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol("score"),
+      val: nativeToScVal(score, { type: "u32" }),
+    }),
+  ])
+}
+
+async function submitRating(
+  config: DemoRuntimeConfig,
+  consumerSecretKey: string,
+  interactionTxHash: string,
+  score: number,
+): Promise<string> {
+  const consumerKeypair = Keypair.fromSecret(consumerSecretKey)
+  const consumerAddress = consumerKeypair.publicKey()
+  const server = new Server(config.rpcUrl)
+  const sourceAccount = await server.getAccount(consumerAddress)
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: BASE_FEE,
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: config.contractId,
+        function: "submit_rating",
+        args: [
+          buildRatingInputScVal(
+            config.providerAddress,
+            consumerAddress,
+            interactionTxHash,
+            score,
+          ),
+        ],
+      }),
+    )
+    .setTimeout(DEMO_TIMEOUT_SECONDS)
+    .build()
+
+  const preparedTransaction = await server.prepareTransaction(transaction)
+  preparedTransaction.sign(consumerKeypair)
+
+  const submission = await server.sendTransaction(preparedTransaction)
+  if (submission.status === "ERROR") {
+    throw new Error(
+      `sendTransaction failed with status ${submission.status} for ${submission.hash}`,
+    )
+  }
+
+  const response = await server.pollTransaction(submission.hash, {
+    attempts: 20,
+  })
+  if (response.status !== "SUCCESS") {
+    throw new Error(
+      `submit_rating transaction did not reach SUCCESS: ${response.status}`,
+    )
+  }
+
+  return submission.hash
+}
+
 export async function runAgentRegistrationStep(
   processEnv: Record<string, string | undefined> = process.env,
 ): Promise<AgentRegistrationStepResult> {
@@ -772,7 +889,7 @@ export async function runPaidStellarIntelCallStep(
     paidResponse.headers.get(name),
   )
 
-  return {
+  const result: PaidProviderCallStepResult = {
     step: "paid-stellarintel-call",
     consumerAddress: consumerKeypair.publicKey(),
     analysisAddress,
@@ -796,6 +913,15 @@ export async function runPaidStellarIntelCallStep(
         ? "Using the provider address as the analysis target so the demo returns meaningful live account activity."
         : null,
   }
+
+  Object.defineProperty(result, DEMO_CONSUMER_SECRET_KEY, {
+    value: consumerKeypair.secret(),
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  })
+
+  return result as PaidProviderCallRuntimeResult
 }
 
 export async function runAutomaticWorkerVerificationStep(
@@ -850,6 +976,44 @@ export async function runAutomaticWorkerVerificationStep(
   }
 }
 
+export async function runRatingSubmissionStep(
+  paidProviderCallResult: PaidProviderCallStepResult,
+  automaticWorkerVerificationResult: AutomaticWorkerVerificationStepResult,
+  processEnv: Record<string, string | undefined> = process.env,
+): Promise<RatingSubmissionStepResult> {
+  const config = loadDemoRuntimeConfig(processEnv)
+  const consumerSecretKey = getDemoConsumerSecretKey(paidProviderCallResult)
+  const ratingSubmissionHash = await submitRating(
+    config,
+    consumerSecretKey,
+    automaticWorkerVerificationResult.matchedInteraction.txHash,
+    DEMO_RATING_SCORE,
+  )
+  const server = new Server(config.rpcUrl)
+  const profile = await getAgentByOwnerAddress(
+    server,
+    config,
+    config.providerAddress,
+  )
+
+  if (profile.score !== DEMO_RATING_SCORE) {
+    throw new Error(
+      `Rating submission verification failed: expected provider score ${DEMO_RATING_SCORE}, got ${profile.score}`,
+    )
+  }
+
+  return {
+    step: "rating-submission",
+    scoreSubmitted: DEMO_RATING_SCORE,
+    interactionTxHash: automaticWorkerVerificationResult.matchedInteraction.txHash,
+    ratingSubmissionHash,
+    providerScoreAfterRating: profile.score,
+    providerVerifiedInteractionsCount: profile.verified_interactions_count,
+    consumerAddress: paidProviderCallResult.consumerAddress,
+    note: null,
+  }
+}
+
 export function buildDemoOutline(): string {
   return [
     "AgentPassport demo sequence:",
@@ -878,6 +1042,11 @@ export async function runDemo(
       paidProviderCallResult,
       processEnv,
     )
+  const ratingSubmissionResult = await runRatingSubmissionStep(
+    paidProviderCallResult,
+    automaticWorkerVerificationResult,
+    processEnv,
+  )
   process.stdout.write(`[Step 1/6] ${DEMO_STEPS[0].title}\n`)
   process.stdout.write(`${stringifyDemoValue(registrationResult)}\n`)
   process.stdout.write(`\n[Step 2/6] ${DEMO_STEPS[1].title}\n`)
@@ -886,7 +1055,9 @@ export async function runDemo(
   process.stdout.write(`${stringifyDemoValue(paidProviderCallResult)}\n`)
   process.stdout.write(`\n[Step 4/6] ${DEMO_STEPS[3].title}\n`)
   process.stdout.write(`${stringifyDemoValue(automaticWorkerVerificationResult)}\n`)
-  process.stdout.write("\nRemaining steps pending: 2\n")
+  process.stdout.write(`\n[Step 5/6] ${DEMO_STEPS[4].title}\n`)
+  process.stdout.write(`${stringifyDemoValue(ratingSubmissionResult)}\n`)
+  process.stdout.write("\nRemaining steps pending: 1\n")
 
   return 0
 }
