@@ -1,3 +1,4 @@
+import { formatUtcTimestamp, formatXlmAmount } from "../lib/format";
 import type { AgentDashboardDetail } from "../types";
 
 type AgentProfileCardProps = {
@@ -5,11 +6,7 @@ type AgentProfileCardProps = {
 };
 
 function formatLastInteraction(timestamp: string | null): string {
-  if (timestamp === null) {
-    return "No verified interactions yet";
-  }
-
-  return timestamp;
+  return formatUtcTimestamp(timestamp);
 }
 
 function formatOptionalUrl(url: string | null): string {
@@ -19,7 +16,8 @@ function formatOptionalUrl(url: string | null): string {
 export function AgentProfileCard({ agent }: AgentProfileCardProps) {
   return (
     <section className="panel stack-md">
-      <div className="stack-sm">
+      <div className="registry-head stack-sm">
+        <div className="record-stamp">Registry record</div>
         <p className="eyebrow">Agent profile</p>
         <h1 className="section-title">{agent.name}</h1>
         <p className="section-copy">{agent.description || "No description provided."}</p>
@@ -29,7 +27,7 @@ export function AgentProfileCard({ agent }: AgentProfileCardProps) {
         <p>
           <strong>Owner address</strong>
         </p>
-        <p className="row-subtle">{agent.ownerAddress}</p>
+        <p className="row-subtle row-mono">{agent.ownerAddress}</p>
       </div>
 
       <div className="stack-sm">
@@ -60,7 +58,7 @@ export function AgentProfileCard({ agent }: AgentProfileCardProps) {
         <p>
           <strong>Current trust metrics</strong>
         </p>
-        <ul className="list-reset stack-sm">
+        <ul className="list-reset stack-sm metrics-grid">
           <li className="list-row">
             <span>Score</span>
             <span className="metric-chip">{agent.score}</span>
@@ -71,7 +69,7 @@ export function AgentProfileCard({ agent }: AgentProfileCardProps) {
           </li>
           <li className="list-row">
             <span>Total economic volume</span>
-            <span className="metric-chip">{agent.totalEconomicVolume}</span>
+            <span className="metric-chip">{formatXlmAmount(agent.totalEconomicVolume)}</span>
           </li>
           <li className="list-row">
             <span>Unique counterparties</span>

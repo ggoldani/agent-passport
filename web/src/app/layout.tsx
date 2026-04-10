@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AgentPassport Dashboard",
-  description: "Minimal trust dashboard for the AgentPassport MVP"
+  description: "Public trust registry for payment-backed agent reputation on Stellar"
 };
 
 export default function RootLayout({
@@ -16,10 +16,15 @@ export default function RootLayout({
       <body>
         <div className="app-shell">
           <header className="topbar">
-            <a className="brand" href="/">
-              AgentPassport
-            </a>
-            <p className="topbar-copy">Minimal trust dashboard for the MVP demo flow.</p>
+            <div className="topbar-mark">
+              <p className="topbar-kicker">Trust Registry / Stellar Testnet</p>
+              <a className="brand" href="/">
+                AgentPassport
+              </a>
+            </div>
+            <p className="topbar-copy">
+              Public reputation records derived from verified paid interactions.
+            </p>
           </header>
           <main className="page-frame">{children}</main>
         </div>

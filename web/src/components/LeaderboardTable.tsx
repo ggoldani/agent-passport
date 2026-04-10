@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatAddressCompact, formatXlmAmount } from "../lib/format";
 import type { AgentLeaderboardEntry } from "../types";
 
 type LeaderboardTableProps = {
@@ -9,9 +10,9 @@ export function LeaderboardTable({ agents }: LeaderboardTableProps) {
   if (agents.length === 0) {
     return (
       <div className="empty-state">
-        <p className="empty-title">No providers loaded yet.</p>
+        <p className="empty-title">No providers indexed yet.</p>
         <p className="empty-copy">
-          The leaderboard component is ready. Live contract data wiring comes next.
+          No live provider records were returned from the contract.
         </p>
       </div>
     );
@@ -19,12 +20,18 @@ export function LeaderboardTable({ agents }: LeaderboardTableProps) {
 
   return (
     <ul className="list-reset stack-sm">
-      {agents.map((agent) => (
+      {agents.map((agent, index) => (
         <li key={agent.ownerAddress}>
           <Link className="list-row" href={`/agents/${agent.ownerAddress}`}>
-            <span>
-              <strong>{agent.name}</strong>
-              <span className="row-subtle">{agent.ownerAddress}</span>
+            <span className="row-main">
+              <span className="list-rank">#{String(index + 1).padStart(2, "0")}</span>
+              <span>
+                <strong>{agent.name}</strong>
+                <span className="row-subtle row-mono" title={agent.ownerAddress}>
+                  {formatAddressCompact(agent.ownerAddress)}
+                </span>
+                <span className="row-subtle">{formatXlmAmount(agent.totalEconomicVolume)}</span>
+              </span>
             </span>
             <span className="metric-chip">Score {agent.score}</span>
           </Link>
