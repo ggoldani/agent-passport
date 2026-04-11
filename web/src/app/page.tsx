@@ -29,6 +29,49 @@ export default async function HomePage() {
         </div>
       </div>
 
+      <section className="panel stack-md">
+        <div className="section-head section-head-stacked">
+          <div>
+            <p className="eyebrow">How it works</p>
+            <h2 className="section-title">Verified trust loop</h2>
+          </div>
+          <p className="section-copy">
+            Trust comes from verified paid interactions, not from generic wallet history.
+          </p>
+        </div>
+
+        <ol className="list-reset flow-grid">
+          <li className="flow-step">
+            <span className="flow-index">01</span>
+            <div className="stack-sm">
+              <strong>Provider registers</strong>
+              <p className="row-subtle">A service creates a public on-chain identity.</p>
+            </div>
+          </li>
+          <li className="flow-step">
+            <span className="flow-index">02</span>
+            <div className="stack-sm">
+              <strong>Consumer pays via x402</strong>
+              <p className="row-subtle">The interaction starts with a real payment.</p>
+            </div>
+          </li>
+          <li className="flow-step">
+            <span className="flow-index">03</span>
+            <div className="stack-sm">
+              <strong>Settlement is verified</strong>
+              <p className="row-subtle">A trusted relayer records the interaction only after network verification.</p>
+            </div>
+          </li>
+          <li className="flow-step">
+            <span className="flow-index">04</span>
+            <div className="stack-sm">
+              <strong>Trust profile updates</strong>
+              <p className="row-subtle">Ratings apply only after that verified paid interaction exists.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
       <section className="panel">
         <div className="section-head">
           <div>
