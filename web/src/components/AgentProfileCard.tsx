@@ -1,4 +1,4 @@
-import { formatUtcTimestamp, formatXlmAmount } from "../lib/format";
+import { formatUtcTimestamp, formatXlmAmount, getScoreToneClass } from "../lib/format";
 import type { AgentDashboardDetail } from "../types";
 
 type AgentProfileCardProps = {
@@ -61,7 +61,9 @@ export function AgentProfileCard({ agent }: AgentProfileCardProps) {
         <ul className="list-reset stack-sm metrics-grid">
           <li className="list-row">
             <span>Score</span>
-            <span className="metric-chip">{agent.score}</span>
+            <span className={`metric-chip score-chip ${getScoreToneClass(agent.score)}`}>
+              {agent.score}
+            </span>
           </li>
           <li className="list-row">
             <span>Verified interactions</span>

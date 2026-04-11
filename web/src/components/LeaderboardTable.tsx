@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatAddressCompact, formatXlmAmount } from "../lib/format";
+import { formatAddressCompact, formatXlmAmount, getScoreToneClass } from "../lib/format";
 import type { AgentLeaderboardEntry } from "../types";
 
 type LeaderboardTableProps = {
@@ -33,7 +33,9 @@ export function LeaderboardTable({ agents }: LeaderboardTableProps) {
                 <span className="row-subtle">{formatXlmAmount(agent.totalEconomicVolume)}</span>
               </span>
             </span>
-            <span className="metric-chip">Score {agent.score}</span>
+            <span className={`metric-chip score-chip ${getScoreToneClass(agent.score)}`}>
+              Score {agent.score}
+            </span>
           </Link>
         </li>
       ))}

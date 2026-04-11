@@ -9,16 +9,25 @@ export default async function HomePage() {
   return (
     <section className="stack-lg">
       <div className="hero-card">
-        <p className="eyebrow">Registry index</p>
-        <h1 className="hero-title">Public trust records for paid agent services.</h1>
-        <p className="hero-copy">
-          AgentPassport reads live Soroban state and surfaces provider reputation as a
-          registry, not a review feed.
-        </p>
-        <div className="hero-meta">
-          <span className="hero-badge">Payment-backed trust</span>
-          <span className="hero-badge">Read-only live view</span>
-          <span className="hero-badge">Soroban testnet</span>
+        <div className="hero-grid">
+          <div className="stack-sm">
+            <p className="eyebrow">Registry index</p>
+            <h1 className="hero-title">
+              Public trust records
+              <span className="hero-title-break">for paid agent services</span>
+            </h1>
+          </div>
+          <div className="hero-support">
+            <p className="hero-copy">
+              AgentPassport reads live Soroban state and surfaces provider reputation as
+              a registry, not a review feed.
+            </p>
+            <div className="hero-meta">
+              <span className="hero-badge">Payment-backed trust</span>
+              <span className="hero-badge">Read-only live view</span>
+              <span className="hero-badge">Soroban testnet</span>
+            </div>
+          </div>
         </div>
       </div>
 
