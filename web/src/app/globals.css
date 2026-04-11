@@ -175,10 +175,20 @@ h2 {
   align-items: end;
 }
 
+.hero-grid-centered {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+
 .hero-support {
   display: grid;
   gap: 18px;
   justify-items: start;
+}
+
+.hero-support-centered {
+  justify-items: center;
 }
 
 .panel {
@@ -207,6 +217,10 @@ h2 {
   text-wrap: balance;
 }
 
+.hero-title-centered {
+  max-width: 16ch;
+}
+
 .hero-title-break {
   display: block;
   margin-top: 2px;
@@ -218,11 +232,24 @@ h2 {
   font-size: 1.05rem;
 }
 
+.hero-copy-centered {
+  max-width: 56ch;
+}
+
 .hero-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 18px;
+}
+
+.hero-meta-centered {
+  justify-content: center;
+  margin-top: 0;
+}
+
+.hero-eyebrow {
+  margin-bottom: 0;
 }
 
 .hero-badge {
@@ -369,6 +396,7 @@ a.list-row:focus-visible {
 .footer-bar {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12px 20px;
   width: min(100%, 1040px);
   margin: 24px auto 0;
