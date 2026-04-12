@@ -131,11 +131,23 @@ agent-passport/
 - Next.js dashboard with live leaderboard and live agent detail pages
 - demo script that exercises the full trust loop on Stellar testnet
 
+CLI note:
+- the current CLI is intentionally in `prepared` mode for the MVP
+- it validates and normalizes the canonical command surface, but the live execution path demonstrated in the hackathon flow is `npm run demo`
+
 This is not a mock architecture. The MVP has already been exercised end-to-end on Stellar testnet with:
 - real x402 payment flow
 - real on-chain interaction registration
 - real post-interaction rating
 - live dashboard reads from the deployed contract
+
+Demo contract on Stellar testnet:
+- `CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F`
+- https://stellar.expert/explorer/testnet/contract/CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F
+
+Demo provider address:
+- `GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT`
+- https://stellar.expert/explorer/testnet/account/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
 
 ## Local setup
 

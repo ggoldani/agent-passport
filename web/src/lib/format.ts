@@ -1,5 +1,17 @@
 const STROOPS_PER_XLM = 10_000_000n;
 
+export function getScoreToneClass(score: number): string {
+  if (score >= 80) {
+    return "score-chip-high";
+  }
+
+  if (score >= 40) {
+    return "score-chip-medium";
+  }
+
+  return "score-chip-low";
+}
+
 export function formatAddressCompact(address: string): string {
   if (address.length <= 18) {
     return address;

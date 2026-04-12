@@ -7,6 +7,7 @@ import {
   Operation,
   scValToNative,
   TransactionBuilder,
+  xdr,
 } from "@stellar/stellar-sdk";
 import { Server } from "@stellar/stellar-sdk/rpc";
 
@@ -120,11 +121,16 @@ function createAgentPassportClient(): AgentPassportClient {
 function buildContractArgs<M extends AgentPassportReadMethodName>(
   method: M,
   args: AgentPassportMethodArgs[M]
-): ReturnType<typeof nativeToScVal>[] {
+): xdr.ScVal[] {
   switch (method) {
     case "get_agent":
     case "list_agent_interactions":
       return [nativeToScVal(args[0], { type: "address" })];
+    case "get_rating": {
+      const [interactionTxHash] = args as AgentPassportMethodArgs["get_rating"];
+
+      return [xdr.ScVal.scvBytes(Buffer.from(interactionTxHash, "hex"))];
+    }
     case "get_config":
     case "list_agents":
       return [];
@@ -244,6 +250,14 @@ export async function getAgentDetail(
       return right.timestamp > left.timestamp ? 1 : -1;
     })
     .slice(0, MAX_RECENT_INTERACTIONS);
+  const recentInteractionsWithRatings = await Promise.all(
+    recentInteractions.map(async (interaction) => {
+      const txHash = normalizeBytes32ToHex(interaction.tx_hash);
+      const rating = await client.getRating(txHash);
+
+      return mapInteractionSummary(interaction, rating?.score ?? null);
+    })
+  );
 
   return {
     agent: {
@@ -258,17 +272,20 @@ export async function getAgentDetail(
       ),
       lastInteractionTimestamp: formatTimestamp(profile.last_interaction_timestamp),
     },
-    recentInteractions: recentInteractions.map(mapInteractionSummary),
+    recentInteractions: recentInteractionsWithRatings,
   };
 }
 
-function mapInteractionSummary(interaction: InteractionRecord) {
+function mapInteractionSummary(
+  interaction: InteractionRecord,
+  ratingScore: number | null
+) {
   return {
     txHash: normalizeBytes32ToHex(interaction.tx_hash),
     consumerAddress: interaction.consumer_address,
     amount: interaction.amount.toString(),
     asset: "XLM",
     occurredAt: formatTimestamp(interaction.timestamp) ?? "Unknown time",
-    ratingScore: null,
+    ratingScore,
   };
 }

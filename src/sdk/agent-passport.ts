@@ -5,11 +5,13 @@ import type {
   Config,
   InteractionRecord,
   RatingInput,
+  RatingRecord,
 } from "./types"
 
 export const AGENT_PASSPORT_READ_METHODS = [
   "get_config",
   "get_agent",
+  "get_rating",
   "list_agents",
   "list_agent_interactions",
 ] as const
@@ -39,6 +41,7 @@ export interface AgentPassportMethodArgs {
   update_relayer: [admin: Address, authorized_relayer: Address]
   register_agent: [owner_address: Address, input: AgentProfileInput]
   get_agent: [owner_address: Address]
+  get_rating: [interaction_tx_hash: string]
   list_agents: []
   register_interaction: [relayer: Address, interaction: InteractionRecord]
   list_agent_interactions: [provider_address: Address]
@@ -51,6 +54,7 @@ export interface AgentPassportMethodResult {
   update_relayer: void
   register_agent: void
   get_agent: AgentProfile
+  get_rating: RatingRecord | null
   list_agents: AgentProfile[]
   register_interaction: void
   list_agent_interactions: InteractionRecord[]
@@ -108,6 +112,10 @@ export class AgentPassportClient {
 
   getAgent(ownerAddress: Address): Promise<AgentProfile> {
     return this.readContract("get_agent", [ownerAddress])
+  }
+
+  getRating(interactionTxHash: string): Promise<RatingRecord | null> {
+    return this.readContract("get_rating", [interactionTxHash])
   }
 
   listAgents(): Promise<AgentProfile[]> {
