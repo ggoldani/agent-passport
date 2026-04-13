@@ -20,6 +20,7 @@ contracts/agent-passport/Cargo.lock
 
 # Env
 .env
+.env.bak
 .env.local
 .env.development.local
 .env.test.local
