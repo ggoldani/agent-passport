@@ -110,143 +110,135 @@ And this is the non-negotiable rule behind the system:
 
 ```text
 agent-passport/
-├── contracts/
+├── contracts/agent-passport/   # Soroban smart contract (Rust)
 ├── scripts/
+│   ├── demo-e2e.ts             # End-to-end demo script
+│   └── worker/                 # Payment verification + on-chain write
 ├── src/
-├── web/
+│   ├── cli/                    # AgentPassport CLI
+│   ├── provider/               # StellarIntel x402 provider (Hono)
+│   └── sdk/                    # Contract client helpers
+├── web/                        # Next.js dashboard
+├── setup.sh                    # One-command hackathon setup
+├── .env.demo                   # Pre-configured demo values
 └── README.md
 ```
 
-## What's implemented now
+## What's implemented
 
-- Soroban contract for agent registration, verified interactions, relayer-gated writes, and post-interaction ratings
-- worker that verifies Horizon data and submits interaction registration on-chain
-- Hono/x402 provider (**StellarIntel**) with one paid `POST /analyze-account` route
-- local CLI with the canonical command surface:
-  - `agent_register`
-  - `agent_query`
-  - `agent_list`
-  - `agent_rate`
-  - `agent_interactions`
-- Next.js dashboard with live leaderboard and live agent detail pages
-- demo script that exercises the full trust loop on Stellar testnet
+- **Soroban contract** — agent registration, verified interactions, relayer-gated writes, post-interaction ratings
+- **Worker** — verifies Horizon settlement data and submits interaction registration on-chain
+- **StellarIntel provider** — Hono/x402 with one paid `POST /analyze-account` endpoint
+- **CLI** — `agent_register`, `agent_query`, `agent_list`, `agent_rate`, `agent_interactions`
+- **Dashboard** — Next.js with live leaderboard and agent detail pages
+- **Demo script** — exercises the full trust loop on Stellar testnet end-to-end
 
-CLI note:
-- the current CLI is intentionally in `prepared` mode for the MVP
-- it validates and normalizes the canonical command surface, but the live execution path demonstrated in the hackathon flow is `npm run demo`
+This is not a mock architecture. The MVP has been exercised on live testnet with real x402 payments, on-chain writes, and ratings.
 
-This is not a mock architecture. The MVP has already been exercised end-to-end on Stellar testnet with:
-- real x402 payment flow
-- real on-chain interaction registration
-- real post-interaction rating
-- live dashboard reads from the deployed contract
+**Demo contract:** [CCIK4F...U7F](https://stellar.expert/explorer/testnet/contract/CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F)
 
-Demo contract on Stellar testnet:
-- `CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F`
-- https://stellar.expert/explorer/testnet/contract/CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F
+**Demo provider:** [GC7TRX...LOPT](https://stellar.expert/explorer/testnet/account/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT)
 
-Demo provider address:
-- `GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT`
-- https://stellar.expert/explorer/testnet/account/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
+## Quick Start
 
-## Local setup
+### Prerequisites
+- [Node.js](https://nodejs.org) ≥ 20
+- npm
+- git
 
-1. Copy `.env.example` to `.env`
-2. Fill in:
-   - `CONTRACT_ID`
-   - `RELAYER_SECRET_KEY`
-   - `PROVIDER_OWNER_SECRET_KEY`
-   - `X402_PAY_TO`
-   - `STELLAR_MCP_URL`
-3. Install root dependencies with `npm install`
-4. Install dashboard dependencies with `npm --prefix web install`
-5. Clone and run the companion service from:
-   - `https://github.com/ggoldani/stellar-mcp`
-6. Point `STELLAR_MCP_URL` to that running instance
+### One command
 
-Required local services for the full demo:
-- Soroban/Stellar testnet access via `STELLAR_RPC_URL` and `STELLAR_HORIZON_URL`
-- a running `stellar-mcp` companion service at `STELLAR_MCP_URL`
-- a funded relayer account on Stellar testnet
-- a funded provider owner account on Stellar testnet
-- a deployed AgentPassport contract on the same testnet
+```bash
+git clone https://github.com/ggoldani/agent-passport.git
+cd agent-passport
+chmod +x setup.sh
+./setup.sh
+```
 
-Useful commands:
-- `npm run contracts`
-- `npm run worker -- '<json-payload>'`
-- `npm run provider`
-- `npm run cli -- help`
-- `npm run demo`
-- `npm run dashboard`
+The script will:
+1. Check prerequisites
+2. Create `.env` from pre-configured demo values
+3. Clone and build [stellar-mcp](https://github.com/ggoldani/stellar-mcp) companion service
+4. Install all dependencies
+5. Start all services (stellar-mcp, provider, dashboard)
+6. Run health checks
 
-## Supporting demo provider
+Once running:
+- **Dashboard:** http://localhost:3000
+- **Provider trust profile:** http://localhost:3000/agents/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
 
-This repository also includes **StellarIntel**, a minimal paid Stellar account intelligence service used to make the AgentPassport trust flow concrete and demoable.
+Run the full demo:
 
-StellarIntel exists to show the full loop clearly:
-- a provider can build trust from real paid work
-- a consumer can inspect that trust before paying
-- reputation changes only after a verified paid interaction
+```bash
+npm run demo
+```
 
-StellarIntel is intentionally narrow:
-- one paid endpoint
-- one Stellar account input
-- real data from the Stellar network
-- deterministic summary logic
-- no LLM required for MVP
+Press `Ctrl+C` to stop all services.
 
-In the current implementation:
-- the provider owner identity is separate from the relayer identity
-- the provider receives the x402 payment
-- the relayer only performs the trusted on-chain write after settlement verification
+### Manual setup
 
-## Ecosystem context
+If you prefer to start each service individually:
 
-AgentPassport is designed to work alongside the existing Stellar agent/payment stack:
-- Stellar x402
+```bash
+# 1. Clone both repos
+git clone https://github.com/ggoldani/agent-passport.git
+git clone https://github.com/ggoldani/stellar-mcp.git
+
+# 2. Build stellar-mcp
+cd stellar-mcp && npm install && npm run build
+
+# 3. Setup agent-passport
+cd ../agent-passport
+cp .env.demo .env
+npm install
+npm --prefix web install
+
+# 4. Start services (3 terminals)
+
+# Terminal A — stellar-mcp
+cd ../stellar-mcp
+MCP_TRANSPORT=http-sse PORT=3005 STELLAR_NETWORK=testnet npm run start:http
+
+# Terminal B — provider
+cd ../agent-passport
+set -a && . ./.env && npm run provider
+
+# Terminal C — dashboard
+cd ../agent-passport
+set -a && . ./.env && npm run dashboard
+```
+
+Then run the demo:
+
+```bash
+cd agent-passport
+set -a && . ./.env && npm run demo
+```
+
+## Architecture
+
+**Components:**
+- **Soroban contract** — stores provider identity, interactions, and ratings on-chain
+- **Worker** — verifies x402 settlement against Horizon, then writes to the contract
+- **StellarIntel** — demo provider with one paid endpoint gated by x402
+- **Dashboard** — reads live trust data from the contract via RPC
+- **[stellar-mcp](https://github.com/ggoldani/stellar-mcp)** — companion service for live Stellar account data
+
+**Flow:** provider registers → consumer checks trust → pays via x402 → worker verifies on-chain → consumer rates → trust profile updates.
+
+**Ecosystem:**
+- [Stellar x402](https://www.x402.org)
 - Soroban smart contracts
-- OpenZeppelin relayer / x402 facilitator
-- `stellar-mcp` as ecosystem infrastructure
 
-## What this repository is and is not
+## Roadmap
 
-The new hackathon work in this repository is:
-- the Soroban contract
-- the worker and relayer-side submission flow
-- the paid **StellarIntel** provider
-- the CLI, dashboard, and demo orchestration
-
-`stellar-mcp` is not the new hackathon implementation in this repo. It is an external companion service we run locally and query for live Stellar account/history data. AgentPassport depends on it for the demo provider's deterministic account analysis, but it remains separate infrastructure.
-
-## Documentation
-
-Planning and design docs were maintained locally during implementation in `docs/plans/`, which is intentionally ignored by git in this repo.
-
-The tracked source of truth for the MVP is the implementation itself:
-- `contracts/agent-passport/`
-- `scripts/worker/`
-- `src/provider/`
-- `src/cli/`
-- `scripts/demo-e2e.ts`
-- `web/`
-
-## Public roadmap
-
-Short version of the next phase:
-- [ ] self-serve provider onboarding around `register_agent`
-- [ ] `update_agent` and full profile management
-- [ ] stronger public provider pages and clearer trust tiers
-- [ ] search, filters, and ranking for provider discovery
-- [ ] trust analytics plus lightweight business analytics for providers
-- [ ] read-first trust API for integrators and ecosystem apps
-- [ ] premium verification and curation layer
-- [ ] broader ecosystem distribution through registries, directories, and marketplaces
+- [ ] Self-serve provider onboarding
+- [ ] Full profile management (`update_agent`)
+- [ ] Trust tiers and search/discovery
+- [ ] Read-first trust API for integrators
+- [ ] Provider analytics
+- [ ] Marketplace layer
 
 ## Status
 
-AgentPassport is now a validated MVP that is already runnable end-to-end on Stellar testnet.
-
-Current state:
-- contract, worker, provider, CLI, demo script, and dashboard are implemented for the MVP flow
-- the canonical demo has already been exercised against live testnet infrastructure
-- the provider identity used in the demo is now **StellarIntel**, not a relayer bootstrap placeholder
+Validated MVP — runnable end-to-end on Stellar testnet with real x402 payments, on-chain interaction registration, and live dashboard.
