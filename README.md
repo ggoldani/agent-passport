@@ -149,35 +149,68 @@ Demo provider address:
 - `GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT`
 - https://stellar.expert/explorer/testnet/account/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
 
-## Local setup
+## Quick Start
 
-1. Copy `.env.example` to `.env`
-2. Fill in:
-   - `CONTRACT_ID`
-   - `RELAYER_SECRET_KEY`
-   - `PROVIDER_OWNER_SECRET_KEY`
-   - `X402_PAY_TO`
-   - `STELLAR_MCP_URL`
-3. Install root dependencies with `npm install`
-4. Install dashboard dependencies with `npm --prefix web install`
-5. Clone and run the companion service from:
-   - `https://github.com/ggoldani/stellar-mcp`
-6. Point `STELLAR_MCP_URL` to that running instance
+### One command
 
-Required local services for the full demo:
-- Soroban/Stellar testnet access via `STELLAR_RPC_URL` and `STELLAR_HORIZON_URL`
-- a running `stellar-mcp` companion service at `STELLAR_MCP_URL`
-- a funded relayer account on Stellar testnet
-- a funded provider owner account on Stellar testnet
-- a deployed AgentPassport contract on the same testnet
+```bash
+git clone https://github.com/ggoldani/agent-passport.git
+cd agent-passport
+chmod +x setup.sh
+./setup.sh
+```
 
-Useful commands:
-- `npm run contracts`
-- `npm run worker -- '<json-payload>'`
-- `npm run provider`
-- `npm run cli -- help`
-- `npm run demo`
-- `npm run dashboard`
+The script clones [stellar-mcp](https://github.com/ggoldani/stellar-mcp), installs all dependencies, starts all services, and runs health checks. Once running:
+
+- **Dashboard:** http://localhost:3000
+- **Provider trust profile:** http://localhost:3000/agents/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
+
+Run the full demo:
+
+```bash
+npm run demo
+```
+
+Press `Ctrl+C` to stop all services.
+
+### Manual setup
+
+```bash
+git clone https://github.com/ggoldani/agent-passport.git
+git clone https://github.com/ggoldani/stellar-mcp.git
+
+# Build stellar-mcp
+cd stellar-mcp && npm install && npm run build
+
+# Setup agent-passport
+cd ../agent-passport
+cp .env.demo .env
+npm install && npm --prefix web install
+
+# Terminal A — stellar-mcp
+cd ../stellar-mcp
+MCP_TRANSPORT=http-sse PORT=3005 STELLAR_NETWORK=testnet npm run start:http
+
+# Terminal B — provider
+cd ../agent-passport
+set -a && . ./.env && npm run provider
+
+# Terminal C — dashboard
+cd ../agent-passport
+set -a && . ./.env && npm run dashboard
+
+# Run the demo
+cd ../agent-passport
+set -a && . ./.env && npm run demo
+```
+
+### Useful commands
+
+- `npm run contracts` — run Soroban contract tests
+- `npm run provider` — start StellarIntel provider
+- `npm run cli -- help` — AgentPassport CLI
+- `npm run demo` — full end-to-end demo
+- `npm run dashboard` — start Next.js dashboard
 
 ## Supporting demo provider
 
