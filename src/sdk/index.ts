@@ -23,3 +23,5 @@ export type {
   RatingInput,
   RatingRecord,
 } from "./types.js"
+
+export { buildMethodArgs } from "./scval.js"
