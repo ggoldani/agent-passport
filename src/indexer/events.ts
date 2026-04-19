@@ -27,7 +27,7 @@ export interface RawGetEventsResponse {
 
 export type EventType = "agent_registered" | "interaction_registered" | "rating_submitted"
 
-const EVENT_SYMBOL_PREFIXES: Readonly<Record<EventType, string>> = {
+export const EVENT_SYMBOL_PREFIXES: Readonly<Record<EventType, string>> = {
   agent_registered: "AgentRegistered",
   interaction_registered: "InteractionRegistered",
   rating_submitted: "RatingSubmitted",
