@@ -480,23 +480,25 @@ function runAgentRegisterCommand(args: string[]): number {
 function runAgentQueryCommand(args: string[]): number {
   try {
     const query = prepareAgentQuery(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_query",
-          mode: "prepared",
-          ownerAddress: query.ownerAddress,
-        },
-        null,
-        2,
-      ),
-    )
+    const client = createSdkClient()
+    writeStdoutLine(`Querying agent ${query.ownerAddress}...`)
+    client
+      .getAgent(query.ownerAddress)
+      .then((profile) => {
+        writeStdoutLine(formatAgentProfile(profile))
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.includes("get_agent")) {
+          writeStdoutLine(`Agent ${query.ownerAddress} not found.`)
+        } else {
+          writeStderrLine(`Query failed: ${message}`)
+          process.exitCode = 1
+        }
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentQueryUsage()) {
       writeStderrLine("")
@@ -591,6 +593,36 @@ function runAgentInteractionsCommand(args: string[]): number {
     }
     return 1
   }
+}
+
+function formatAgentProfile(profile: {
+  name: string
+  description: string | null
+  owner_address: string
+  score: number
+  verified_interactions_count: bigint
+  total_economic_volume: bigint
+  unique_counterparties_count: bigint
+  tags: string[]
+  service_url: string | null
+  mcp_server_url: string | null
+  payment_endpoint: string | null
+}): string {
+  return [
+    `Name: ${profile.name}`,
+    `Address: ${profile.owner_address}`,
+    `Score: ${profile.score}`,
+    `Interactions: ${profile.verified_interactions_count}`,
+    `Volume: ${profile.total_economic_volume} stroops`,
+    `Counterparties: ${profile.unique_counterparties_count}`,
+    profile.tags.length > 0 ? `Tags: ${profile.tags.join(", ")}` : null,
+    profile.description ? `Description: ${profile.description}` : null,
+    profile.service_url ? `Service URL: ${profile.service_url}` : null,
+    profile.mcp_server_url ? `MCP URL: ${profile.mcp_server_url}` : null,
+    profile.payment_endpoint ? `Payment: ${profile.payment_endpoint}` : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n")
 }
 
 export function runCli(argv: string[]): number {
