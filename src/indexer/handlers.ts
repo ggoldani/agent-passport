@@ -90,41 +90,43 @@ export function handleInteractionRegistered(db: Db, event: RawEvent): void {
     return
   }
 
-  const insertResult = db.insert(interactions)
-    .values({
-      provider_address: providerAddress,
-      consumer_address: consumerAddress,
-      tx_hash: txHash,
-      amount,
-      timestamp,
-      service_label: serviceLabel,
-      ledger: event.ledger,
-    })
-    .onConflictDoNothing()
-    .run()
+  db.transaction(() => {
+    const insertResult = db.insert(interactions)
+      .values({
+        provider_address: providerAddress,
+        consumer_address: consumerAddress,
+        tx_hash: txHash,
+        amount,
+        timestamp,
+        service_label: serviceLabel,
+        ledger: event.ledger,
+      })
+      .onConflictDoNothing()
+      .run()
 
-  if (insertResult.changes === 0) return
+    if (insertResult.changes === 0) return
 
-  const currentVolume = BigInt(db.select({ v: agents.total_economic_volume })
-    .from(agents).where(eq(agents.owner_address, providerAddress)).get()?.v ?? "0")
-  const newVolume = (currentVolume + BigInt(amount)).toString()
-  const now = Math.floor(Date.now() / 1000)
+    const currentVolume = BigInt(db.select({ v: agents.total_economic_volume })
+      .from(agents).where(eq(agents.owner_address, providerAddress)).get()?.v ?? "0")
+    const newVolume = (currentVolume + BigInt(amount)).toString()
+    const now = Math.floor(Date.now() / 1000)
 
-  db.update(agents)
-    .set({
-      verified_interactions_count: sql`${agents.verified_interactions_count} + 1`,
-      total_economic_volume: newVolume,
-      last_interaction_timestamp: timestamp,
-      updated_at: now,
-      unique_counterparties_count: sql`(
-        SELECT COUNT(*) FROM (
-          SELECT DISTINCT consumer_address FROM interactions
-          WHERE provider_address = ${providerAddress}
-        )
-      )`,
-    })
-    .where(eq(agents.owner_address, providerAddress))
-    .run()
+    db.update(agents)
+      .set({
+        verified_interactions_count: sql`${agents.verified_interactions_count} + 1`,
+        total_economic_volume: newVolume,
+        last_interaction_timestamp: timestamp,
+        updated_at: now,
+        unique_counterparties_count: sql`(
+          SELECT COUNT(*) FROM (
+            SELECT DISTINCT consumer_address FROM interactions
+            WHERE provider_address = ${providerAddress}
+          )
+        )`,
+      })
+      .where(eq(agents.owner_address, providerAddress))
+      .run()
+  })
 }
 
 export function handleRatingSubmitted(db: Db, event: RawEvent): void {
@@ -145,27 +147,29 @@ export function handleRatingSubmitted(db: Db, event: RawEvent): void {
     return
   }
 
-  const ratingInsertResult = db.insert(ratings)
-    .values({
-      provider_address: providerAddress,
-      consumer_address: consumerAddress,
-      interaction_tx_hash: interactionTxHash,
-      score,
-      timestamp,
-      ledger: event.ledger,
-    })
-    .onConflictDoNothing()
-    .run()
+  db.transaction(() => {
+    const ratingInsertResult = db.insert(ratings)
+      .values({
+        provider_address: providerAddress,
+        consumer_address: consumerAddress,
+        interaction_tx_hash: interactionTxHash,
+        score,
+        timestamp,
+        ledger: event.ledger,
+      })
+      .onConflictDoNothing()
+      .run()
 
-  if (ratingInsertResult.changes === 0) return
+    if (ratingInsertResult.changes === 0) return
 
-  const now = Math.floor(Date.now() / 1000)
+    const now = Math.floor(Date.now() / 1000)
 
-  db.update(agents)
-    .set({
-      score: sql`(SELECT COALESCE(CAST(AVG(score) AS INTEGER), 0) FROM ratings WHERE provider_address = ${providerAddress})`,
-      updated_at: now,
-    })
-    .where(eq(agents.owner_address, providerAddress))
-    .run()
+    db.update(agents)
+      .set({
+        score: sql`(SELECT COALESCE(CAST(AVG(score) AS INTEGER), 0) FROM ratings WHERE provider_address = ${providerAddress})`,
+        updated_at: now,
+      })
+      .where(eq(agents.owner_address, providerAddress))
+      .run()
+  })
 }

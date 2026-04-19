@@ -25,7 +25,16 @@ export async function syncHistorical(config: IndexerConfig, startLedger?: number
   }
 
   const indexer = new AgentPassportIndexer(config)
-  console.log(`Starting historical sync from ledger ${fromLedger}...`)
-  const processed = await indexer.processEvents(fromLedger, fromLedger + 100000)
-  console.log(`Historical sync complete. ${processed} events processed.`)
+  let current = fromLedger
+  let totalProcessed = 0
+
+  while (true) {
+    const batch = await indexer.processEvents(current, current + 100000)
+    totalProcessed += batch
+    console.log(`  Synced to ledger ${current + 100000}: ${batch} events (total: ${totalProcessed})`)
+    if (batch === 0) break
+    current += 100001
+  }
+
+  console.log(`Historical sync complete. ${totalProcessed} events processed.`)
 }

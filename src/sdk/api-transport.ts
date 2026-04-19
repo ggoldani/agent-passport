@@ -27,27 +27,24 @@ export class TrustApiTransport implements AgentPassportTransport {
   ): Promise<AgentPassportMethodResult[M]> {
     switch (method) {
       case "get_agent": {
-        const data = await this.fetchJson(`/agents/${args[0]}`)
+        const { data, status } = await this.fetchJson<Record<string, any>>(`/agents/${args[0]}`)
+        if (status === 404) throw new Error(`Agent not found: ${args[0]}`)
         return this.toAgentProfile(data) as AgentPassportMethodResult[M]
       }
       case "list_agents": {
-        const resp = await this.fetchJson<{ data: any[] }>(`/agents?limit=100`)
-        const list = Array.isArray(resp?.data) ? resp.data : []
+        const { data } = await this.fetchJson<{ data: any[] }>(`/agents?limit=100`)
+        const list = Array.isArray(data?.data) ? data.data : []
         return list.map((a: any) => this.toAgentProfile(a)) as AgentPassportMethodResult[M]
       }
       case "get_rating": {
         const txHash = args[0] as string
-        try {
-          const data = await this.fetchJson<any>(`/ratings/${txHash}`)
-          return this.toRatingRecord(data) as AgentPassportMethodResult[M]
-        } catch (e) {
-          if (e instanceof Error && e.message.includes("404")) return null as AgentPassportMethodResult[M]
-          throw e
-        }
+        const { data, status } = await this.fetchJson<Record<string, any>>(`/ratings/${txHash}`)
+        if (status === 404) return null as AgentPassportMethodResult[M]
+        return this.toRatingRecord(data) as AgentPassportMethodResult[M]
       }
       case "list_agent_interactions": {
-        const resp = await this.fetchJson<{ data: any[] }>(`/agents/${args[0]}/interactions?limit=100`)
-        const list = Array.isArray(resp?.data) ? resp.data : []
+        const { data } = await this.fetchJson<{ data: any[] }>(`/agents/${args[0]}/interactions?limit=100`)
+        const list = Array.isArray(data?.data) ? data.data : []
         return list.map((i: any) => this.toInteractionRecord(i)) as AgentPassportMethodResult[M]
       }
       case "get_config": {
@@ -68,13 +65,13 @@ export class TrustApiTransport implements AgentPassportTransport {
     throw new Error(`Write method "${method}" is not available via TrustApiTransport. Use SorobanRpcTransport for write operations.`)
   }
 
-  private async fetchJson<T>(path: string): Promise<T> {
+  private async fetchJson<T>(path: string): Promise<{ data: T; status: number }> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
     try {
       const res = await fetch(`${this.baseUrl}${path}`, { signal: controller.signal })
-      if (!res.ok) throw new Error(`API error: ${res.status} ${await res.text()}`)
-      return res.json()
+      if (!res.ok) return { data: null as T, status: res.status }
+      return { data: await res.json(), status: res.status }
     } finally {
       clearTimeout(timeout)
     }
