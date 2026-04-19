@@ -25,3 +25,8 @@ export type {
 } from "./types.js"
 
 export { buildMethodArgs } from "./scval.js"
+
+export {
+  SorobanRpcTransport,
+  type SorobanRpcTransportConfig,
+} from "./transport.js"
