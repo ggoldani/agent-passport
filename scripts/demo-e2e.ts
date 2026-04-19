@@ -572,6 +572,12 @@ async function readContractMethod(
     )
   }
 
+  if (simulation.result === undefined) {
+    throw new Error(
+      `Failed to simulate ${method}: simulation has no result`,
+    )
+  }
+
   return scValToNative(simulation.result.retval)
 }
 
@@ -926,7 +932,7 @@ export async function runPaidStellarIntelCallStep(
       payTo: paidBody.payment.payTo,
     },
     settlement: {
-      payer: settlement.payer,
+      payer: settlement.payer ?? "unknown",
       transaction: settlement.transaction,
     },
     analysis: {
