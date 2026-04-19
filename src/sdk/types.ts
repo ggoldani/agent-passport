@@ -55,6 +55,10 @@ export interface RatingInput {
   score: number
 }
 
+export interface RichRatingInput extends RatingInput {}
+
+export interface RichRatingRecord extends RatingRecord {}
+
 export interface AgentProfileWithRecentInteractions {
   profile: AgentProfile
   recent_interactions: InteractionRecord[]

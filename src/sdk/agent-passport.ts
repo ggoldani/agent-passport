@@ -6,7 +6,9 @@ import type {
   InteractionRecord,
   RatingInput,
   RatingRecord,
-} from "./types"
+  RichRatingInput,
+  RichRatingRecord,
+} from "./types.js"
 
 export const AGENT_PASSPORT_READ_METHODS = [
   "get_config",
