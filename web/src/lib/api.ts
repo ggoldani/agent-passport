@@ -56,8 +56,8 @@ type ApiRatingResponse = {
 
 type ApiPaginatedResponse<T> = {
   data: T[]
-  cursor: string | null
   total: number
+  has_more: boolean
 }
 
 const API_BASE = process.env.API_URL ?? "http://localhost:3002"

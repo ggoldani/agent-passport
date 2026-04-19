@@ -13,7 +13,7 @@ app.get("/", async (c) => {
   const q = c.req.query("q")?.trim()
   const tags = c.req.query("tags")?.trim().split(",").filter(Boolean)
   const minScore = Number(c.req.query("minScore")) || 0
-  const limit = Math.min(Number(c.req.query("limit")) || 20, 100)
+  const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 20, 100))
   const sortBy = c.req.query("sortBy") ?? "score"
   const sortOrder = c.req.query("sortOrder") !== "asc" ? "desc" : "asc"
 
@@ -49,11 +49,7 @@ app.get("/", async (c) => {
   const hasMore = rows.length > limit
   const data = rows.slice(0, limit).map(formatAgent)
 
-  return c.json<PaginatedResponse<AgentResponse>>({
-    data,
-    cursor: hasMore && data.length > 0 ? encodeURIComponent(String(data[data.length - 1].owner_address)) : null,
-    total,
-  })
+  return c.json<PaginatedResponse<AgentResponse>>({ data, total, has_more: hasMore })
 })
 
 export default app

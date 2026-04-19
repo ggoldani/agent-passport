@@ -20,7 +20,7 @@ function formatRating(r: typeof ratings.$inferSelect): RatingResponse {
 app.get("/", async (c) => {
   const db = c.get("db")
   const providerAddress = c.req.param("address")!
-  const limit = Math.min(Number(c.req.query("limit")) || 20, 100)
+  const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 20, 100))
 
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
@@ -37,11 +37,7 @@ app.get("/", async (c) => {
   const hasMore = rows.length > limit
   const data = rows.slice(0, limit).map(formatRating)
 
-  return c.json<PaginatedResponse<RatingResponse>>({
-    data,
-    cursor: hasMore && data.length > 0 ? encodeURIComponent(String(data[data.length - 1].timestamp)) : null,
-    total,
-  })
+  return c.json<PaginatedResponse<RatingResponse>>({ data, total, has_more: hasMore })
 })
 
 export default app

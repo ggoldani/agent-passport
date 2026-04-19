@@ -10,7 +10,7 @@ const app = new Hono<{ Variables: Variables }>()
 
 app.get("/", async (c) => {
   const db = c.get("db")
-  const limit = Math.min(Number(c.req.query("limit")) || 20, 100)
+  const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 20, 100))
   const sort = c.req.query("sort") ?? "score"
   const order = c.req.query("order") === "asc" ? asc : desc
 
@@ -31,11 +31,7 @@ app.get("/", async (c) => {
   const hasMore = rows.length > limit
   const data = rows.slice(0, limit).map(formatAgent)
 
-  return c.json<PaginatedResponse<AgentResponse>>({
-    data,
-    cursor: hasMore && data.length > 0 ? encodeURIComponent(String(data[data.length - 1].owner_address)) : null,
-    total,
-  })
+  return c.json<PaginatedResponse<AgentResponse>>({ data, total, has_more: hasMore })
 })
 
 app.get("/:address", async (c) => {

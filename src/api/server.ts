@@ -32,9 +32,9 @@ export function createApiServer(dbPath?: string) {
   app.route("/search", searchRoutes)
 
   app.get("/ratings/:txHash", async (c) => {
-    const db2 = c.get("db")
+    const db = c.get("db")
     const txHash = c.req.param("txHash")
-    const row = db2.select().from(ratings).where(eq(ratings.interaction_tx_hash, txHash)).get()
+    const row = db.select().from(ratings).where(eq(ratings.interaction_tx_hash, txHash)).get()
     if (!row) return c.json({ error: "Rating not found" }, 404)
     return c.json({
       provider_address: row.provider_address,
