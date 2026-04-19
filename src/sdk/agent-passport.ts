@@ -141,4 +141,26 @@ export class AgentPassportClient {
   submitRating(rating: RatingInput): Promise<void> {
     return this.writeContract("submit_rating", [rating])
   }
+
+  submitRichRating(input: RichRatingInput): Promise<RichRatingRecord> {
+    const onChainRating: RatingInput = {
+      provider_address: input.provider_address,
+      consumer_address: input.consumer_address,
+      interaction_tx_hash: input.interaction_tx_hash,
+      score: input.score,
+    }
+
+    return this.writeContract("submit_rating", [onChainRating]).then(() => ({
+      provider_address: input.provider_address,
+      consumer_address: input.consumer_address,
+      interaction_tx_hash: input.interaction_tx_hash,
+      score: input.score,
+      quality: input.quality ?? null,
+      speed: input.speed ?? null,
+      reliability: input.reliability ?? null,
+      communication: input.communication ?? null,
+      comment: input.comment ?? null,
+      submitted_at: new Date().toISOString(),
+    }))
+  }
 }
