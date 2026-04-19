@@ -9,9 +9,13 @@
     "dashboard": "npm --prefix web run dev",
     "cli": "tsx src/cli/index.ts",
     "build:sdk": "tsc -p src/sdk/tsconfig.build.json",
-    "demo": "tsx scripts/demo-e2e.ts"
+    "demo": "tsx scripts/demo-e2e.ts",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.20.4",
     "typescript": "^6.0.3"
   },
@@ -22,6 +26,8 @@
     "@x402/core": "^2.9.0",
     "@x402/express": "^2.9.0",
     "@x402/stellar": "^2.9.0",
+    "better-sqlite3": "^12.9.0",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "hono": "^4.12.12"
   }
