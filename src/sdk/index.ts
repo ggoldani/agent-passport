@@ -31,3 +31,8 @@ export {
   SorobanRpcTransport,
   type SorobanRpcTransportConfig,
 } from "./transport.js"
+
+export {
+  TrustApiTransport,
+  type TrustApiTransportConfig,
+} from "./api-transport.js"
