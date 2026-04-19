@@ -11,7 +11,9 @@
     "build:sdk": "tsc -p src/sdk/tsconfig.build.json",
     "demo": "tsx scripts/demo-e2e.ts",
     "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "indexer": "tsx scripts/run-indexer.ts",
+    "sync": "tsx -e \"import { applyEnvFile } from './src/lib/env.js'; applyEnvFile(); import { syncHistorical } from './src/indexer/sync.js'; syncHistorical({ contractId: process.env.CONTRACT_ID, rpcUrl: process.env.STELLAR_RPC_URL }).catch(e => { console.error(e); process.exit(1); })\""
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
