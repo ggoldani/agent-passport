@@ -1,0 +1,22 @@
+{
+  "name": "agent-passport-sdk",
+  "version": "0.1.0",
+  "description": "Payment-gated trust layer for AI agents on Stellar/Soroban",
+  "main": "./dist/agent-passport.js",
+  "types": "./dist/agent-passport.d.ts",
+  "typesVersions": { "*": { "*": ["./dist/*"] } },
+  "exports": {
+    ".": {
+      "import": "./dist/agent-passport.js",
+      "require": "./dist/agent-passport.js",
+      "types": "./dist/agent-passport.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "keywords": ["stellar", "soroban", "agent", "trust", "reputation", "x402"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ggoldani/agent-passport"
+  }
+}

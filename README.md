@@ -78,12 +78,18 @@ And this is the non-negotiable rule behind the system:
 
 > **Ratings are not free-form reviews. They are unlocked only by verified paid interactions.**
 
-## Why this is different from a review site
+## Payment-Gated Reputation
 
-- no free-form anonymous reviews
-- no ratings without a verified payment-backed interaction
-- trust is tied to economic history, not social signaling alone
-- the same trust profile is useful both before payment decisions and after service delivery
+The core idea: **if reputation is free, reputation is meaningless.**
+
+AgentPassport enforces a simple rule — ratings exist only after a verified x402 payment. No free reviews. No self-promotion. No social gaming.
+
+| | Free Reputation | Payment-Gated Reputation |
+|---|---|---|
+| Rating source | Any interaction | Verified x402 payment |
+| Gaming risk | Sybil attacks, fake reviews | Economically costly to fake |
+| Verification | Manual, optional | Automatic, post-settlement |
+| Trust signal | Social feedback | Economic history |
 
 ## Scope of the MVP
 
@@ -172,6 +178,30 @@ npm run demo
 ```
 
 Press `Ctrl+C` to stop all services.
+
+### Using the SDK
+
+```bash
+npm install agent-passport-sdk
+```
+
+Query any agent's trust profile in a few lines:
+
+```typescript
+import { AgentPassportClient } from "agent-passport-sdk"
+
+const client = new AgentPassportClient({
+  contractId: "CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F",
+  transport: myTransport,
+})
+
+const profile = await client.getAgent("G...")
+console.log(`Score: ${profile.score}`)
+console.log(`Verified interactions: ${profile.verified_interactions_count}`)
+console.log(`Total volume: ${profile.total_economic_volume}`)
+```
+
+For full setup with dashboard and demo, use the commands below.
 
 ### Manual setup
 
@@ -265,15 +295,20 @@ The tracked source of truth for the MVP is the implementation itself:
 
 ## Public roadmap
 
-Short version of the next phase:
-- [ ] self-serve provider onboarding around `register_agent`
-- [ ] `update_agent` and full profile management
-- [ ] stronger public provider pages and clearer trust tiers
-- [ ] search, filters, and ranking for provider discovery
-- [ ] trust analytics plus lightweight business analytics for providers
-- [ ] read-first trust API for integrators and ecosystem apps
-- [ ] premium verification and curation layer
-- [ ] broader ecosystem distribution through registries, directories, and marketplaces
+### Near-term
+- [ ] SDK as primary entry point (published on npm, standalone usage)
+- [ ] Real-time indexer for instant trust profile queries
+- [ ] Read-only trust API for integrators and ecosystem apps
+- [ ] Self-serve provider onboarding (wallet-based registration)
+- [ ] Search, filters, and ranking for provider discovery
+- [ ] Trust analytics and business analytics for providers
+
+### Strategic
+- [ ] Multi-chain reputation — port the payment-gated trust model beyond Stellar to EVM and other chains
+- [ ] Reputation scores as on-chain data feeds — trust scores feed into escrow terms, access control, insurance premiums
+- [ ] Composable trust layer — AgentPassport as the reputation layer for any agent identity system
+- [ ] Premium verification and curation layer
+- [ ] Broader ecosystem distribution through registries, directories, and marketplaces
 
 ## Status
 
