@@ -37,13 +37,6 @@ function readRequiredEnv(key: string): string {
   return normalized
 }
 
-function readOptionalEnv(key: string): string | undefined {
-  const value = process.env[key]
-  if (value === undefined) return undefined
-  const normalized = value.trim()
-  return normalized.length === 0 ? undefined : normalized
-}
-
 function loadEnvFile(): Record<string, string> {
   const envPath = resolve(process.cwd(), ".env")
   if (!existsSync(envPath)) return {}
@@ -64,6 +57,15 @@ function loadEnvFile(): Record<string, string> {
         return [key, val] as const
       }),
   )
+}
+
+function applyEnvFile(): void {
+  const envVars = loadEnvFile()
+  for (const [key, value] of Object.entries(envVars)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value
+    }
+  }
 }
 
 function createSdkClient(): AgentPassportClient {
@@ -105,10 +107,6 @@ interface PreparedAgentQuery {
 
 interface PreparedAgentList {
   limit: null
-}
-
-interface PreparedAgentRating {
-  rating: RatingInput
 }
 
 interface PreparedAgentInteractions {
@@ -436,23 +434,6 @@ function prepareAgentList(args: string[]): PreparedAgentList {
   }
 }
 
-function prepareAgentRating(args: string[]): PreparedAgentRating {
-  if (args[0] === "help" || args[0] === "--help") {
-    throw new Error(buildAgentRateUsage())
-  }
-
-  const options = parseCommandOptions(args, "agent_rate", AGENT_RATE_OPTION_NAMES)
-
-  return {
-    rating: {
-      provider_address: parseStellarAddressOption(options, "provider-address"),
-      consumer_address: parseStellarAddressOption(options, "consumer-address"),
-      interaction_tx_hash: parseInteractionTxHashOption(options),
-      score: parseScoreOption(options),
-    },
-  }
-}
-
 function prepareAgentInteractions(args: string[]): PreparedAgentInteractions {
   if (args[0] === "help" || args[0] === "--help") {
     throw new Error(buildAgentInteractionsUsage())
@@ -589,7 +570,7 @@ function runAgentRateCommand(args: string[]): number {
     const communication = parseOptionalScore(options, "communication")
     const comment = readOptionalOption(options, "comment")
 
-    const hasDimensions = quality !== undefined || speed !== undefined || reliability !== undefined || communication !== undefined
+    const hasDimensions = quality !== undefined || speed !== undefined || reliability !== undefined || communication !== undefined || comment !== null
 
     const client = createSdkClient()
     const store = loadRichRatingStore()
@@ -657,11 +638,7 @@ function runAgentInteractionsCommand(args: string[]): number {
         }
         writeStdoutLine(`Found ${interactions.length} interaction(s):\n`)
         interactions.forEach((interaction, index) => {
-          const txHash =
-            typeof interaction.tx_hash === "string"
-              ? interaction.tx_hash
-              : Buffer.from(interaction.tx_hash).toString("hex")
-          writeStdoutLine(`  ${index + 1}. tx=${txHash}`)
+          writeStdoutLine(`  ${index + 1}. tx=${interaction.tx_hash}`)
           writeStdoutLine(`     Consumer: ${interaction.consumer_address}`)
           writeStdoutLine(`     Amount: ${interaction.amount} | Timestamp: ${interaction.timestamp}`)
           writeStdoutLine("")
@@ -764,6 +741,7 @@ function runTrustCheckCommand(args: string[]): number {
 }
 
 export function runCli(argv: string[]): number {
+  applyEnvFile()
   const command = argv[0]
 
   if (command === undefined || command === "help" || command === "--help") {

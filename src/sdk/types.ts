@@ -79,8 +79,3 @@ export interface RichRatingRecord {
   comment: string | null
   submitted_at: string
 }
-
-export interface AgentProfileWithRecentInteractions {
-  profile: AgentProfile
-  recent_interactions: InteractionRecord[]
-}

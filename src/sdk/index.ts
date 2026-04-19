@@ -16,7 +16,6 @@ export type {
   Address,
   AgentProfile,
   AgentProfileInput,
-  AgentProfileWithRecentInteractions,
   Bytes32,
   Config,
   InteractionRecord,

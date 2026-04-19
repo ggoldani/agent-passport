@@ -1,3 +1,5 @@
+// TODO(I6): Track stellar-sdk updates for axios CVE fixes (GHSA-3p68-rc4w-qgx5, GHSA-fvcv-3m26-pcqx).
+// HTTPS enforcement below mitigates the primary risk. Revisit when stellar-sdk v16+ drops.
 import {
   BASE_FEE,
   Keypair,
@@ -25,6 +27,22 @@ export interface SorobanRpcTransportConfig {
 
 const DEFAULT_TIMEOUT_SECONDS = 30
 
+function bytesNToHex(value: unknown): unknown {
+  if (value === null || value === undefined) return value
+  if ((Buffer.isBuffer(value) && value.length === 32) || (value instanceof Uint8Array && value.byteLength === 32)) {
+    return Buffer.from(value).toString("hex")
+  }
+  if (Array.isArray(value)) return value.map(bytesNToHex)
+  if (typeof value === "object") {
+    const result: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = bytesNToHex(v)
+    }
+    return result
+  }
+  return value
+}
+
 export class SorobanRpcTransport implements AgentPassportTransport {
   private readonly server: Server
   private readonly networkPassphrase: string
@@ -32,7 +50,11 @@ export class SorobanRpcTransport implements AgentPassportTransport {
   private readonly timeoutSeconds: number
 
   constructor(config: SorobanRpcTransportConfig) {
-    this.server = new Server(config.rpcUrl)
+    const isLocal = config.rpcUrl.startsWith("http://localhost") || config.rpcUrl.startsWith("http://127.0.0.1")
+    if (!config.rpcUrl.startsWith("https://") && !isLocal) {
+      throw new Error(`RPC URL must use HTTPS (got ${config.rpcUrl}). Unencrypted connections are not supported.`)
+    }
+    this.server = new Server(config.rpcUrl, { allowHttp: isLocal })
     this.networkPassphrase = config.networkPassphrase
     this.signer = Keypair.fromSecret(config.signerSecretKey)
     this.timeoutSeconds = config.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS
@@ -71,9 +93,9 @@ export class SorobanRpcTransport implements AgentPassportTransport {
       throw new Error(`Simulation failed for ${method}: no result returned`)
     }
 
-    return scValToNative(
+    return bytesNToHex(scValToNative(
       simulation.result.retval,
-    ) as AgentPassportMethodResult[M]
+    )) as AgentPassportMethodResult[M]
   }
 
   async write<M extends AgentPassportWriteMethodName>(

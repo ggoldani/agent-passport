@@ -1,3 +1,5 @@
+import { StrKey } from "@stellar/stellar-sdk"
+
 import type {
   Address,
   AgentProfile,
@@ -87,6 +89,9 @@ export class AgentPassportClient {
   readonly transport: AgentPassportTransport
 
   constructor(options: AgentPassportClientOptions) {
+    if (!StrKey.isValidContract(options.contractId)) {
+      throw new Error(`Invalid contract ID: ${options.contractId}. Must be a valid Stellar contract address (C...).`)
+    }
     this.contractId = options.contractId
     this.transport = options.transport
   }
@@ -140,6 +145,10 @@ export class AgentPassportClient {
 
   submitRating(rating: RatingInput): Promise<void> {
     return this.writeContract("submit_rating", [rating])
+  }
+
+  getConfig(): Promise<Config> {
+    return this.readContract("get_config", [])
   }
 
   submitRichRating(input: RichRatingInput): Promise<RichRatingRecord> {
