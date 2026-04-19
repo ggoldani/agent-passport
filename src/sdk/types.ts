@@ -55,9 +55,30 @@ export interface RatingInput {
   score: number
 }
 
-export interface RichRatingInput extends RatingInput {}
+export interface RichRatingInput {
+  provider_address: Address
+  consumer_address: Address
+  interaction_tx_hash: Bytes32
+  score: number
+  quality?: number
+  speed?: number
+  reliability?: number
+  communication?: number
+  comment?: string
+}
 
-export interface RichRatingRecord extends RatingRecord {}
+export interface RichRatingRecord {
+  provider_address: Address
+  consumer_address: Address
+  interaction_tx_hash: Bytes32
+  score: number
+  quality: number | null
+  speed: number | null
+  reliability: number | null
+  communication: number | null
+  comment: string | null
+  submitted_at: string
+}
 
 export interface AgentProfileWithRecentInteractions {
   profile: AgentProfile

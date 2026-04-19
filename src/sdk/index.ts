@@ -22,6 +22,8 @@ export type {
   InteractionRecord,
   RatingInput,
   RatingRecord,
+  RichRatingInput,
+  RichRatingRecord,
 } from "./types.js"
 
 export { buildMethodArgs } from "./scval.js"
