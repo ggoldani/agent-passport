@@ -1,17 +1,81 @@
 declare const process: {
   argv: string[]
+  cwd(): string
+  env: Record<string, string | undefined>
   exitCode?: number
-  stdout: {
-    write(chunk: string): boolean
-  }
-  stderr: {
-    write(chunk: string): boolean
-  }
+  stdout: { write(chunk: string): boolean }
+  stderr: { write(chunk: string): boolean }
 }
+
+import { existsSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { Buffer } from "node:buffer"
 
 import { StrKey } from "@stellar/stellar-sdk"
 
-import type { AgentProfileInput, Address, RatingInput } from "../sdk/types"
+import {
+  AgentPassportClient,
+  SorobanRpcTransport,
+} from "../sdk/index.js"
+import type {
+  Address,
+  AgentProfileInput,
+  RatingInput,
+  RichRatingRecord,
+} from "../sdk/types.js"
+import { loadRichRatingStore } from "./rich-ratings.js"
+
+function readRequiredEnv(key: string): string {
+  const value = process.env[key]
+  if (value === undefined) {
+    throw new Error(`Missing required environment variable: ${key}`)
+  }
+  const normalized = value.trim()
+  if (normalized.length === 0) {
+    throw new Error(`Environment variable ${key} must not be blank`)
+  }
+  return normalized
+}
+
+function readOptionalEnv(key: string): string | undefined {
+  const value = process.env[key]
+  if (value === undefined) return undefined
+  const normalized = value.trim()
+  return normalized.length === 0 ? undefined : normalized
+}
+
+function loadEnvFile(): Record<string, string> {
+  const envPath = resolve(process.cwd(), ".env")
+  if (!existsSync(envPath)) return {}
+  return Object.fromEntries(
+    readFileSync(envPath, "utf8")
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"))
+      .map((line) => {
+        const idx = line.indexOf("=")
+        if (idx === -1) return [line, ""] as const
+        const key = line.slice(0, idx).trim()
+        const raw = line.slice(idx + 1).trim()
+        const val =
+          raw.startsWith('"') && raw.endsWith('"')
+            ? raw.slice(1, -1)
+            : raw
+        return [key, val] as const
+      }),
+  )
+}
+
+function createSdkClient(): AgentPassportClient {
+  return new AgentPassportClient({
+    contractId: readRequiredEnv("CONTRACT_ID"),
+    transport: new SorobanRpcTransport({
+      rpcUrl: readRequiredEnv("STELLAR_RPC_URL"),
+      networkPassphrase: readRequiredEnv("STELLAR_NETWORK_PASSPHRASE"),
+      signerSecretKey: readRequiredEnv("AGENT_SECRET_KEY"),
+    }),
+  })
+}
 
 export const AGENT_PASSPORT_CLI_COMMANDS = [
   "agent_register",
