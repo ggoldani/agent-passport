@@ -78,6 +78,7 @@ function createSdkClient(): AgentPassportClient {
 }
 
 export const AGENT_PASSPORT_CLI_COMMANDS = [
+  "trust_check",
   "agent_register",
   "agent_query",
   "agent_list",
@@ -647,6 +648,55 @@ function formatAgentProfile(profile: {
     .join("\n")
 }
 
+function runTrustCheckCommand(args: string[]): number {
+  if (args.length === 0 || args[0] === "help" || args[0] === "--help") {
+    writeStdoutLine("Usage: npm run cli -- trust_check <G...>\n\nQuick trust profile lookup for any Stellar address.")
+    return 0
+  }
+
+  const address = args[0]
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    writeStderrLine(`Invalid Stellar address: ${address}`)
+    return 1
+  }
+
+  const client = createSdkClient()
+  client
+    .getAgent(address)
+    .then((profile) => {
+      writeStdoutLine(`Trust Profile: ${profile.name}\n`)
+      writeStdoutLine(formatAgentProfile(profile))
+      const store = loadRichRatingStore()
+      const richRatings = store.getByProvider(address)
+      if (richRatings.length > 0) {
+        writeStdoutLine("\nRich Rating Dimensions (off-chain):")
+        const avg = (
+          field: keyof Pick<RichRatingRecord, "quality" | "speed" | "reliability" | "communication">,
+        ) => {
+          const values = richRatings
+            .map((r) => r[field])
+            .filter((v): v is number => v !== null)
+          if (values.length === 0) return null
+          return (values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1)
+        }
+        writeStdoutLine(`  Quality: ${avg("quality") ?? "N/A"} (${richRatings.length} ratings)`)
+        writeStdoutLine(`  Speed: ${avg("speed") ?? "N/A"}`)
+        writeStdoutLine(`  Reliability: ${avg("reliability") ?? "N/A"}`)
+        writeStdoutLine(`  Communication: ${avg("communication") ?? "N/A"}`)
+      }
+    })
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes("get_agent")) {
+        writeStdoutLine(`No trust profile found for ${address}.`)
+      } else {
+        writeStderrLine(`Trust check failed: ${message}`)
+        process.exitCode = 1
+      }
+    })
+  return 0
+}
+
 export function runCli(argv: string[]): number {
   const command = argv[0]
 
@@ -660,6 +710,10 @@ export function runCli(argv: string[]): number {
     writeStderrLine("")
     writeStderrLine(buildUsage())
     return 1
+  }
+
+  if (command === "trust_check") {
+    return runTrustCheckCommand(argv.slice(1))
   }
 
   if (command === "agent_register") {
