@@ -32,3 +32,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# CLI off-chain data
+.agent-passport/
