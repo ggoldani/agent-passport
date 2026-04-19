@@ -578,24 +578,36 @@ function runAgentRateCommand(args: string[]): number {
 
 function runAgentInteractionsCommand(args: string[]): number {
   try {
-    const interactions = prepareAgentInteractions(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_interactions",
-          mode: "prepared",
-          providerAddress: interactions.providerAddress,
-        },
-        null,
-        2,
-      ),
-    )
+    const { providerAddress } = prepareAgentInteractions(args)
+    const client = createSdkClient()
+    writeStdoutLine(`Querying interactions for ${providerAddress}...`)
+    client
+      .listAgentInteractions(providerAddress)
+      .then((interactions) => {
+        if (interactions.length === 0) {
+          writeStdoutLine("No interactions found.")
+          return
+        }
+        writeStdoutLine(`Found ${interactions.length} interaction(s):\n`)
+        interactions.forEach((interaction, index) => {
+          const txHash =
+            typeof interaction.tx_hash === "string"
+              ? interaction.tx_hash
+              : Buffer.from(interaction.tx_hash).toString("hex")
+          writeStdoutLine(`  ${index + 1}. tx=${txHash}`)
+          writeStdoutLine(`     Consumer: ${interaction.consumer_address}`)
+          writeStdoutLine(`     Amount: ${interaction.amount} | Timestamp: ${interaction.timestamp}`)
+          writeStdoutLine("")
+        })
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`Query failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentInteractionsUsage()) {
       writeStderrLine("")
