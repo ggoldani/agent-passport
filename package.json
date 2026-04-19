@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "indexer": "tsx scripts/run-indexer.ts",
+    "api": "tsx scripts/run-api.ts",
     "sync": "tsx -e \"import { applyEnvFile } from './src/lib/env.js'; applyEnvFile(); import { syncHistorical } from './src/indexer/sync.js'; syncHistorical({ contractId: process.env.CONTRACT_ID, rpcUrl: process.env.STELLAR_RPC_URL }).catch(e => { console.error(e); process.exit(1); })\""
   },
   "devDependencies": {
