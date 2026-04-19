@@ -37,9 +37,13 @@ export class TrustApiTransport implements AgentPassportTransport {
       }
       case "get_rating": {
         const txHash = args[0] as string
-        const data = await this.fetchJson<any>(`/ratings/${txHash}`).catch(() => null)
-        if (!data) return null as AgentPassportMethodResult[M]
-        return this.toRatingRecord(data) as AgentPassportMethodResult[M]
+        try {
+          const data = await this.fetchJson<any>(`/ratings/${txHash}`)
+          return this.toRatingRecord(data) as AgentPassportMethodResult[M]
+        } catch (e) {
+          if (e instanceof Error && e.message.includes("404")) return null as AgentPassportMethodResult[M]
+          throw e
+        }
       }
       case "list_agent_interactions": {
         const resp = await this.fetchJson<{ data: any[] }>(`/agents/${args[0]}/interactions?limit=100`)
