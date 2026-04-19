@@ -510,24 +510,34 @@ function runAgentQueryCommand(args: string[]): number {
 
 function runAgentListCommand(args: string[]): number {
   try {
-    const list = prepareAgentList(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_list",
-          mode: "prepared",
-          limit: list.limit,
-        },
-        null,
-        2,
-      ),
-    )
+    prepareAgentList(args)
+    const client = createSdkClient()
+    writeStdoutLine("Listing registered agents...")
+    client
+      .listAgents()
+      .then((profiles) => {
+        if (profiles.length === 0) {
+          writeStdoutLine("No agents registered.")
+          return
+        }
+        writeStdoutLine(`Found ${profiles.length} agent(s):\n`)
+        profiles.forEach((profile, index) => {
+          writeStdoutLine(`  ${index + 1}. ${profile.name} (${profile.owner_address})`)
+          writeStdoutLine(`     Score: ${profile.score} | Interactions: ${profile.verified_interactions_count}`)
+          if (profile.description) {
+            writeStdoutLine(`     ${profile.description}`)
+          }
+          writeStdoutLine("")
+        })
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`List failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentListUsage()) {
       writeStderrLine("")
