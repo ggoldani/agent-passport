@@ -20,9 +20,8 @@ export function rateLimit(opts: { windowMs: number; max: number }) {
       lastCleanup = now
     }
 
-    const apiKey = c.req.header("x-api-key")
     const ip = c.req.header("x-forwarded-for")?.split(",")[0] ?? c.req.header("x-real-ip") ?? "anonymous"
-    const key = apiKey ?? ip
+    const key = ip
     let bucket = buckets.get(key)
 
     if (!bucket) {

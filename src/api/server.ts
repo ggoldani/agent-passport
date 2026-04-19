@@ -22,7 +22,7 @@ export function createApiServer(dbPath?: string) {
     await next()
   })
 
-  app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 100 }))
+  app.use("*", rateLimit({ windowMs: 60_000, max: 300 }))
   app.use("/search/*", rateLimit({ windowMs: 60_000, max: 60 }))
 
   app.route("/", healthRoutes)
