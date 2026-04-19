@@ -443,24 +443,31 @@ function prepareAgentInteractions(args: string[]): PreparedAgentInteractions {
 function runAgentRegisterCommand(args: string[]): number {
   try {
     const registration = prepareAgentRegistration(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_register",
-          mode: "prepared",
-          ownerAddress: registration.ownerAddress,
-          input: registration.input,
-        },
-        null,
-        2,
-      ),
-    )
+    const client = createSdkClient()
+    const input: AgentProfileInput = {
+      name: registration.input.name,
+      description: registration.input.description,
+      tags: registration.input.tags,
+      service_url: registration.input.service_url,
+      mcp_server_url: registration.input.mcp_server_url,
+      payment_endpoint: registration.input.payment_endpoint,
+    }
+    writeStdoutLine(`Registering agent "${input.name}"...`)
+    writeStdoutLine(`  Owner: ${registration.ownerAddress}`)
+    writeStdoutLine(`  Tags: ${input.tags.join(", ") || "(none)"}`)
+    client
+      .registerAgent(registration.ownerAddress, input)
+      .then(() => {
+        writeStdoutLine("Registration submitted successfully.")
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`Registration failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentRegisterUsage()) {
       writeStderrLine("")
