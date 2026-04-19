@@ -1,3 +1,5 @@
+import type { agents as agentsTable } from "../indexer/db/schema.js"
+
 export interface PaginatedResponse<T> {
   data: T[]
   cursor: string | null
@@ -35,4 +37,22 @@ export interface RatingResponse {
   interaction_tx_hash: string
   score: number
   timestamp: number
+}
+
+export function formatAgent(a: typeof agentsTable.$inferSelect): AgentResponse {
+  return {
+    owner_address: a.owner_address,
+    name: a.name,
+    description: a.description,
+    tags: JSON.parse(a.tags),
+    score: a.score,
+    verified_interactions_count: Number(a.verified_interactions_count),
+    total_economic_volume: a.total_economic_volume,
+    unique_counterparties_count: Number(a.unique_counterparties_count),
+    last_interaction_timestamp: a.last_interaction_timestamp ? Number(a.last_interaction_timestamp) : null,
+    created_at: Number(a.created_at),
+    service_url: a.service_url,
+    mcp_server_url: a.mcp_server_url,
+    payment_endpoint: a.payment_endpoint,
+  }
 }

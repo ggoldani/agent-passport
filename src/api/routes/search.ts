@@ -1,36 +1,19 @@
 import { Hono } from "hono"
 import { sql, desc, asc } from "drizzle-orm"
 import { agents } from "../../indexer/db/schema.js"
-import type { AgentResponse, PaginatedResponse } from "../types.js"
+import { formatAgent } from "../types.js"
+import type { PaginatedResponse, AgentResponse } from "../types.js"
 
 type Variables = { db: any }
 
 const app = new Hono<{ Variables: Variables }>()
-
-function formatAgent(a: typeof agents.$inferSelect): AgentResponse {
-  return {
-    owner_address: a.owner_address,
-    name: a.name,
-    description: a.description,
-    tags: JSON.parse(a.tags),
-    score: a.score,
-    verified_interactions_count: Number(a.verified_interactions_count),
-    total_economic_volume: a.total_economic_volume,
-    unique_counterparties_count: Number(a.unique_counterparties_count),
-    last_interaction_timestamp: a.last_interaction_timestamp ? Number(a.last_interaction_timestamp) : null,
-    created_at: Number(a.created_at),
-    service_url: a.service_url,
-    mcp_server_url: a.mcp_server_url,
-    payment_endpoint: a.payment_endpoint,
-  }
-}
 
 app.get("/", async (c) => {
   const db = c.get("db")
   const q = c.req.query("q")?.trim()
   const tags = c.req.query("tags")?.trim().split(",").filter(Boolean)
   const minScore = Number(c.req.query("minScore")) || 0
-  const limit = Math.min(Number(c.req.query("limit") ?? 20), 100)
+  const limit = Math.min(Number(c.req.query("limit")) || 20, 100)
   const sortBy = c.req.query("sortBy") ?? "score"
   const sortOrder = c.req.query("sortOrder") !== "asc" ? "desc" : "asc"
 

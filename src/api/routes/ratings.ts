@@ -20,7 +20,7 @@ function formatRating(r: typeof ratings.$inferSelect): RatingResponse {
 app.get("/", async (c) => {
   const db = c.get("db")
   const providerAddress = c.req.param("address")!
-  const limit = Math.min(Number(c.req.query("limit") ?? 20), 100)
+  const limit = Math.min(Number(c.req.query("limit")) || 20, 100)
 
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
