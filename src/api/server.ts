@@ -3,10 +3,12 @@ import { cors } from "hono/cors"
 import { eq } from "drizzle-orm"
 import { ratings } from "../indexer/db/schema.js"
 import { getDatabase } from "../indexer/db/connection.js"
+import { rateLimit } from "./middleware/rate-limit.js"
 import healthRoutes from "./routes/health.js"
 import agentsRoutes from "./routes/agents.js"
 import interactionsRoutes from "./routes/interactions.js"
 import ratingsRoutes from "./routes/ratings.js"
+import searchRoutes from "./routes/search.js"
 
 type Variables = { db: any }
 
@@ -20,10 +22,14 @@ export function createApiServer(dbPath?: string) {
     await next()
   })
 
+  app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 100 }))
+  app.use("/search/*", rateLimit({ windowMs: 60_000, max: 60 }))
+
   app.route("/", healthRoutes)
   app.route("/agents", agentsRoutes)
   app.route("/agents/:address/interactions", interactionsRoutes)
   app.route("/agents/:address/ratings", ratingsRoutes)
+  app.route("/search", searchRoutes)
 
   app.get("/ratings/:txHash", async (c) => {
     const db2 = c.get("db")
