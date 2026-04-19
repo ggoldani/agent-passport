@@ -132,6 +132,11 @@ const AGENT_RATE_OPTION_NAMES = [
   "consumer-address",
   "interaction-tx-hash",
   "score",
+  "quality",
+  "speed",
+  "reliability",
+  "communication",
+  "comment",
 ] as const
 
 function isAgentPassportCliCommand(
@@ -175,7 +180,14 @@ function buildAgentListUsage(): string {
 
 function buildAgentRateUsage(): string {
   return [
-    "Usage: npm run cli -- agent_rate --provider-address <G...> --consumer-address <G...> --interaction-tx-hash <64-hex> --score <0-100>",
+    "Usage: npm run cli -- agent_rate --provider-address <G...> --consumer-address <G...> --interaction-tx-hash <64-hex> --score <0-100> [options]",
+    "",
+    "Options:",
+    "  --quality <1-5>       Quality dimension (optional)",
+    "  --speed <1-5>         Speed dimension (optional)",
+    "  --reliability <1-5>   Reliability dimension (optional)",
+    "  --communication <1-5> Communication dimension (optional)",
+    "  --comment <text>      Optional comment",
   ].join("\n")
 }
 
@@ -345,6 +357,22 @@ function parseScoreOption(options: Record<string, string>): number {
   }
 
   return score
+}
+
+function parseOptionalScore(
+  options: Record<string, string>,
+  optionName: string,
+): number | undefined {
+  const raw = options[optionName]
+  if (raw === undefined) return undefined
+  if (!/^[0-9]+$/.test(raw)) {
+    throw new Error(`Invalid ${optionName}: expected an integer, got ${raw}`)
+  }
+  const value = Number.parseInt(raw, 10)
+  if (value < 1 || value > 5) {
+    throw new Error(`Invalid ${optionName}: expected 1-5, got ${value}`)
+  }
+  return value
 }
 
 function prepareAgentRegistration(args: string[]): PreparedAgentRegistration {
@@ -550,24 +578,62 @@ function runAgentListCommand(args: string[]): number {
 
 function runAgentRateCommand(args: string[]): number {
   try {
-    const rating = prepareAgentRating(args)
+    const options = parseCommandOptions(args, "agent_rate", AGENT_RATE_OPTION_NAMES)
+    const providerAddress = parseStellarAddressOption(options, "provider-address")
+    const consumerAddress = parseStellarAddressOption(options, "consumer-address")
+    const interactionTxHash = parseInteractionTxHashOption(options)
+    const score = parseScoreOption(options)
+    const quality = parseOptionalScore(options, "quality")
+    const speed = parseOptionalScore(options, "speed")
+    const reliability = parseOptionalScore(options, "reliability")
+    const communication = parseOptionalScore(options, "communication")
+    const comment = readOptionalOption(options, "comment")
 
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_rate",
-          mode: "prepared",
-          rating: rating.rating,
-        },
-        null,
-        2,
-      ),
-    )
+    const hasDimensions = quality !== undefined || speed !== undefined || reliability !== undefined || communication !== undefined
+
+    const client = createSdkClient()
+    const store = loadRichRatingStore()
+
+    writeStdoutLine(`Submitting rating of ${score} for interaction ${interactionTxHash}...`)
+    if (hasDimensions) {
+      writeStdoutLine(`  Dimensions: quality=${quality ?? "-"} speed=${speed ?? "-"} reliability=${reliability ?? "-"} communication=${communication ?? "-"}`)
+    }
+
+    const ratingInput: RatingInput = {
+      provider_address: providerAddress,
+      consumer_address: consumerAddress,
+      interaction_tx_hash: interactionTxHash,
+      score,
+    }
+
+    client
+      .submitRating(ratingInput)
+      .then(() => {
+        writeStdoutLine("On-chain rating submitted successfully.")
+        if (hasDimensions) {
+          store.submit({
+            provider_address: providerAddress,
+            consumer_address: consumerAddress,
+            interaction_tx_hash: interactionTxHash,
+            score,
+            quality: quality ?? null,
+            speed: speed ?? null,
+            reliability: reliability ?? null,
+            communication: communication ?? null,
+            comment: comment ?? null,
+            submitted_at: new Date().toISOString(),
+          })
+          writeStdoutLine("Rich rating dimensions stored locally.")
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`Rating submission failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentRateUsage()) {
       writeStderrLine("")
