@@ -20,6 +20,7 @@ import {
 } from "../../../src/sdk/agent-passport";
 import type { AgentProfile, InteractionRecord } from "../../../src/sdk/types";
 import type { AgentDashboardDetail, AgentLeaderboardEntry } from "../types";
+import type { ApiAnalyticsResponse } from "./api-types";
 
 type ApiAgentResponse = {
   owner_address: string
@@ -438,4 +439,8 @@ export async function getCounterparties(address: string, limit = 10): Promise<Ap
     `/agents/${address}/counterparties?limit=${limit}`
   )
   return response?.data ?? []
+}
+
+export async function getAgentStats(address: string, period = "30d"): Promise<ApiAnalyticsResponse | null> {
+  return fetchFromApi<ApiAnalyticsResponse>(`/agents/${address}/stats?period=${period}`)
 }
