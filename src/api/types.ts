@@ -20,6 +20,7 @@ export interface AgentResponse {
   service_url: string | null
   mcp_server_url: string | null
   payment_endpoint: string | null
+  trust_tier: "new" | "active" | "trusted" | null
 }
 
 export interface InteractionResponse {
@@ -62,6 +63,40 @@ export function formatAgent(a: typeof agentsTable.$inferSelect): AgentResponse {
     created_at: Number(a.created_at),
     service_url: a.service_url,
     mcp_server_url: a.mcp_server_url,
-    payment_endpoint: a.payment_endpoint,
+      payment_endpoint: a.payment_endpoint,
+    trust_tier: computeTrustTier(
+      Number(a.verified_interactions_count),
+      a.score,
+      Number(a.unique_counterparties_count),
+    ),
   }
+}
+
+export function computeTrustTier(
+  interactions: number,
+  score: number,
+  counterparties: number,
+): "new" | "active" | "trusted" | null {
+  if (interactions < 5 || score < 50) return "new"
+  if (interactions >= 20 && score >= 75 && counterparties >= 5) return "trusted"
+  return "active"
+}
+
+export interface TrustCheckResponse {
+  trusted: boolean
+  address: string
+  name: string
+  score: number
+  trust_tier: string | null
+  verified_interactions: number
+  unique_counterparties: number
+  last_active: number | null
+  checked_at: string
+}
+
+export interface CounterpartyResponse {
+  address: string
+  interaction_count: number
+  total_volume: string
+  is_registered_agent: boolean
 }
