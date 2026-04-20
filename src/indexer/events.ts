@@ -28,9 +28,9 @@ export interface RawGetEventsResponse {
 export type EventType = "agent_registered" | "interaction_registered" | "rating_submitted"
 
 export const EVENT_SYMBOL_PREFIXES: Readonly<Record<EventType, string>> = {
-  agent_registered: "AgentRegistered",
-  interaction_registered: "InteractionRegistered",
-  rating_submitted: "RatingSubmitted",
+  agent_registered: "agent_registered",
+  interaction_registered: "interaction_registered",
+  rating_submitted: "rating_submitted",
 }
 
 export async function fetchLatestLedger(server: Server): Promise<number> {
@@ -61,7 +61,7 @@ export function classifyEvent(event: RawEvent): EventType | null {
     const native = scValToNative(topic0ScVal)
     if (typeof native !== "string") return null
     for (const [eventType, prefix] of Object.entries(EVENT_SYMBOL_PREFIXES)) {
-      if (native.includes(prefix)) return eventType as EventType
+      if (native === prefix) return eventType as EventType
     }
   } catch {
     return null
@@ -100,7 +100,8 @@ export function decodeTopicHash(topic: string | undefined): string | null {
   }
 }
 
-export function decodeEventValueFields(base64Value: string): any[] {
-  const scVal = xdr.ScVal.fromXDR(base64Value, "base64")
-  return scValToNative(scVal) as any[]
+export function decodeEventValue(event: RawEvent): Record<string, any> {
+  return scValToNative(xdr.ScVal.fromXDR(event.value, "base64"))
 }
+
+

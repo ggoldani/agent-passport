@@ -2,7 +2,7 @@ import { Server } from "@stellar/stellar-sdk/rpc"
 import { AgentPassportIndexer } from "./indexer.js"
 import type { IndexerConfig } from "./types.js"
 import { getDatabase } from "./db/connection.js"
-import { fetchLatestLedger } from "./events.js"
+import { fetchLatestLedger, fetchContractEvents } from "./events.js"
 import { eq } from "drizzle-orm"
 import { indexerWatermark } from "./db/schema.js"
 
@@ -20,8 +20,9 @@ export async function syncHistorical(config: IndexerConfig, startLedger?: number
     const isLocal = config.rpcUrl.startsWith("http://localhost") || config.rpcUrl.startsWith("http://127.0.0.1")
     const server = new Server(config.rpcUrl, { allowHttp: isLocal })
     const latest = await fetchLatestLedger(server)
-    fromLedger = Math.max(0, latest - 172800)
-    console.log(`No watermark found. Backfilling last ~7 days from ledger ${fromLedger}`)
+    const probe = await fetchContractEvents(server, config.contractId, Math.max(1, latest - 1000), latest)
+    fromLedger = probe.oldestLedger
+    console.log(`No watermark found. Starting from RPC oldest available ledger: ${fromLedger}`)
   }
 
   const indexer = new AgentPassportIndexer(config)

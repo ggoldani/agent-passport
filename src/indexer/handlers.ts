@@ -3,11 +3,7 @@ import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 type Db = BetterSQLite3Database<any>
 import { agents, interactions, ratings } from "./db/schema.js"
 import type { RawEvent } from "./events.js"
-import {
-  decodeTopicAddress,
-  decodeTopicHash,
-  decodeEventValueFields,
-} from "./events.js"
+import { decodeTopicAddress, decodeTopicHash, decodeEventValue } from "./events.js"
 
 export function handleAgentRegistered(db: Db, event: RawEvent): void {
   const ownerAddress = decodeTopicAddress(event.topic[1])
@@ -22,14 +18,14 @@ export function handleAgentRegistered(db: Db, event: RawEvent): void {
   let createdAt = 0
 
   try {
-    const fields = decodeEventValueFields(event.value)
-    name = String(fields[0] ?? "")
-    description = String(fields[1] ?? "")
-    tags = JSON.stringify(Array.isArray(fields[2]) ? fields[2] : [])
-    serviceUrl = fields[3] != null ? String(fields[3]) : null
-    mcpServerUrl = fields[4] != null ? String(fields[4]) : null
-    paymentEndpoint = fields[5] != null ? String(fields[5]) : null
-    createdAt = Number(fields[6] ?? 0)
+    const fields = decodeEventValue(event)
+    name = String(fields.name ?? "")
+    description = String(fields.description ?? "")
+    tags = JSON.stringify(Array.isArray(fields.tags) ? fields.tags : [])
+    serviceUrl = fields.service_url != null ? String(fields.service_url) : null
+    mcpServerUrl = fields.mcp_server_url != null ? String(fields.mcp_server_url) : null
+    paymentEndpoint = fields.payment_endpoint != null ? String(fields.payment_endpoint) : null
+    createdAt = Number(fields.created_at ?? 0)
   } catch (e) {
     console.error("Failed to parse AgentRegistered event value:", e)
     return
@@ -76,15 +72,16 @@ export function handleInteractionRegistered(db: Db, event: RawEvent): void {
   let serviceLabel: string | null = null
 
   try {
-    const fields = decodeEventValueFields(event.value)
-    txHash = typeof fields[0] === "string"
-      ? fields[0]
-      : Buffer.isBuffer(fields[0]) || fields[0] instanceof Uint8Array
-        ? Buffer.from(fields[0]).toString("hex")
-        : String(fields[0])
-    amount = String(fields[1] ?? "0")
-    timestamp = Number(fields[2] ?? 0)
-    serviceLabel = fields[3] != null ? String(fields[3]) : null
+    const fields = decodeEventValue(event)
+    const rawHash = fields.tx_hash
+    txHash = typeof rawHash === "string"
+      ? rawHash
+      : Buffer.isBuffer(rawHash) || rawHash instanceof Uint8Array
+        ? Buffer.from(rawHash).toString("hex")
+        : String(rawHash)
+    amount = String(fields.amount ?? "0")
+    timestamp = Number(fields.timestamp ?? 0)
+    serviceLabel = fields.service_label != null ? String(fields.service_label) : null
   } catch (e) {
     console.error("Failed to parse InteractionRegistered event value:", e)
     return
@@ -139,9 +136,9 @@ export function handleRatingSubmitted(db: Db, event: RawEvent): void {
   let timestamp = 0
 
   try {
-    const fields = decodeEventValueFields(event.value)
-    score = Number(fields[0] ?? 0)
-    timestamp = Number(fields[1] ?? 0)
+    const fields = decodeEventValue(event)
+    score = Number(fields.score ?? 0)
+    timestamp = Number(fields.timestamp ?? 0)
   } catch (e) {
     console.error("Failed to parse RatingSubmitted event value:", e)
     return

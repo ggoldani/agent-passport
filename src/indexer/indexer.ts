@@ -121,8 +121,19 @@ export class AgentPassportIndexer {
           console.log(`Indexed ${eventCount} events up to ledger ${Math.max(maxEventLedger, response.latestLedger)}`)
         }
       }
-    } catch (error) {
-      console.error("Indexer poll error:", error)
+    } catch (error: any) {
+      if (error?.code === -32600 && error?.message?.includes("ledger range")) {
+        try {
+          const latest = await fetchLatestLedger(this.server).catch(() => this.readWatermark(db))
+          const probe = await fetchContractEvents(this.server, this.contractId, Math.max(1, latest - 1000), latest)
+          this.writeWatermark(db, probe.oldestLedger)
+          console.log(`Watermark stale. Reset to RPC oldest: ${probe.oldestLedger}`)
+        } catch (probeError) {
+          console.error("Failed to recover stale watermark:", probeError)
+        }
+      } else {
+        console.error("Indexer poll error:", error)
+      }
     }
   }
 
