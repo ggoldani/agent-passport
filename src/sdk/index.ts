@@ -23,6 +23,8 @@ export type {
   RatingRecord,
   RichRatingInput,
   RichRatingRecord,
+  TrustCheckOptions,
+  TrustCheckResult,
 } from "./types.js"
 
 export { buildMethodArgs } from "./scval.js"
