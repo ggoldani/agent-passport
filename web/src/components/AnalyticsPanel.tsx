@@ -25,7 +25,8 @@ export function AnalyticsPanel({ agentName, initialStats, address }: AnalyticsPa
     setPeriod(newPeriod)
     setLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002"}/agents/${address}/stats?period=${newPeriod}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002"}/agents/${encodeURIComponent(address)}/stats?period=${newPeriod}`)
+      if (!res.ok) return
       const data = await res.json()
       setStats(data)
     } catch {
