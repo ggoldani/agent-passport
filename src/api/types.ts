@@ -100,3 +100,14 @@ export interface CounterpartyResponse {
   total_volume: string
   is_registered_agent: boolean
 }
+
+export interface AnalyticsResponse {
+  address: string
+  period: string
+  total_interactions: number
+  total_volume: string
+  unique_counterparties: number
+  avg_rating: number | null
+  rating_distribution: { 1: number; 2: number; 3: number; 4: number; 5: number }
+  interactions_by_day: Array<{ date: string; count: number }>
+}

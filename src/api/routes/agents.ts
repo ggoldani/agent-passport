@@ -3,7 +3,7 @@ import { eq, desc, asc, sql } from "drizzle-orm"
 import { agents } from "../../indexer/db/schema.js"
 import { getRawDb } from "../../indexer/db/connection.js"
 import { formatAgent } from "../types.js"
-import type { PaginatedResponse, AgentResponse, CounterpartyResponse } from "../types.js"
+import type { PaginatedResponse, AgentResponse, CounterpartyResponse, AnalyticsResponse } from "../types.js"
 
 type Variables = { db: any }
 
@@ -147,7 +147,63 @@ app.get("/:address/stats", async (c) => {
   const agent = db.select().from(agents).where(eq(agents.owner_address, address)).get()
   if (!agent) return c.json({ error: "Agent not found" }, 404)
 
-  return c.json({ address, period, data: "placeholder" })
+  const rawDb = getRawDb()
+  const now = Math.floor(Date.now() / 1000)
+
+  const periodDays: Record<string, number | null> = { "7d": 7, "30d": 30, "90d": 90, "all": null }
+  const days = periodDays[period]
+  const cutoff = days !== null ? now - days * 86400 : 0
+  const interactionTimeFilter = days !== null ? "AND i.timestamp >= ?" : ""
+  const ratingTimeFilter = days !== null ? "AND timestamp >= ?" : ""
+  const statsParams = days !== null ? [address, address, cutoff] : [address, address]
+  const ratingParams = days !== null ? [address, cutoff] : [address]
+
+  const stats = rawDb.prepare(
+    `SELECT
+       COUNT(*) as total_interactions,
+       COALESCE(SUM(CAST(i.amount AS REAL)), 0) as total_volume,
+       COUNT(DISTINCT CASE WHEN i.provider_address = ? THEN i.consumer_address ELSE i.provider_address END) as unique_counterparties
+     FROM interactions i
+     WHERE (i.provider_address = ? OR i.consumer_address = ?)
+     ${interactionTimeFilter}`
+  ).get(address, ...statsParams) as { total_interactions: number; total_volume: number; unique_counterparties: number }
+
+  const ratingRow = rawDb.prepare(
+    `SELECT AVG(score) as avg_rating FROM ratings WHERE provider_address = ? ${ratingTimeFilter}`
+  ).get(...ratingParams) as { avg_rating: number | null }
+
+  const ratingDistRows = rawDb.prepare(
+    `SELECT score, COUNT(*) as count FROM ratings WHERE provider_address = ? ${ratingTimeFilter} GROUP BY score`
+  ).all(...ratingParams) as Array<{ score: number; count: number }>
+
+  const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  for (const r of ratingDistRows) {
+    if (r.score >= 1 && r.score <= 5) ratingDistribution[r.score as 1 | 2 | 3 | 4 | 5] = r.count
+  }
+
+  const maxDays = days !== null ? days : 90
+  const interactionsByDay = rawDb.prepare(
+    `SELECT date(i.timestamp, 'unixepoch') as date, COUNT(*) as count
+     FROM interactions i
+     WHERE (i.provider_address = ? OR i.consumer_address = ?)
+     ${interactionTimeFilter}
+     GROUP BY date(i.timestamp, 'unixepoch')
+     ORDER BY date ASC
+     LIMIT ?`
+  ).all(...statsParams, maxDays) as Array<{ date: string; count: number }>
+
+  const response: AnalyticsResponse = {
+    address,
+    period,
+    total_interactions: stats.total_interactions,
+    total_volume: String(stats.total_volume),
+    unique_counterparties: stats.unique_counterparties,
+    avg_rating: ratingRow.avg_rating !== null ? Math.round(ratingRow.avg_rating * 100) / 100 : null,
+    rating_distribution: ratingDistribution,
+    interactions_by_day: interactionsByDay,
+  }
+
+  return c.json<AnalyticsResponse>(response)
 })
 
 app.get("/:address", async (c) => {
