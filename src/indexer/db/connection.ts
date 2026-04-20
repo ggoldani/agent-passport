@@ -100,6 +100,8 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
     CREATE INDEX IF NOT EXISTS idx_agents_created ON agents(created_at);
     CREATE INDEX IF NOT EXISTS idx_interactions_timestamp ON interactions(timestamp);
     CREATE INDEX IF NOT EXISTS idx_interactions_consumer ON interactions(consumer_address);
+    CREATE INDEX IF NOT EXISTS idx_rich_ratings_provider ON rich_ratings(provider_address);
+    CREATE INDEX IF NOT EXISTS idx_rich_ratings_submitted_at ON rich_ratings(submitted_at);
   `)
 
   const existingColumns = _rawDb.prepare("SELECT name FROM pragma_table_info('agents')").all() as { name: string }[]

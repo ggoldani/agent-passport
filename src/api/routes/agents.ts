@@ -134,6 +134,22 @@ app.get("/", async (c) => {
   return c.json<PaginatedResponse<AgentResponse>>({ data, total, has_more: hasMore })
 })
 
+app.get("/:address/stats", async (c) => {
+  const db = c.get("db")
+  const address = c.req.param("address")
+  const period = c.req.query("period") ?? "30d"
+
+  const validPeriods = ["7d", "30d", "90d", "all"]
+  if (!validPeriods.includes(period)) {
+    return c.json({ error: `Invalid period. Must be one of: ${validPeriods.join(", ")}` }, 400)
+  }
+
+  const agent = db.select().from(agents).where(eq(agents.owner_address, address)).get()
+  if (!agent) return c.json({ error: "Agent not found" }, 404)
+
+  return c.json({ address, period, data: "placeholder" })
+})
+
 app.get("/:address", async (c) => {
   const db = c.get("db")
   const address = c.req.param("address")
