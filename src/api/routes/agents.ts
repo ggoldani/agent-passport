@@ -3,7 +3,7 @@ import { eq, desc, asc, sql } from "drizzle-orm"
 import { agents } from "../../indexer/db/schema.js"
 import { getRawDb } from "../../indexer/db/connection.js"
 import { formatAgent } from "../types.js"
-import type { PaginatedResponse, AgentResponse, CounterpartyResponse, AnalyticsResponse } from "../types.js"
+import type { PaginatedResponse, AgentResponse, CounterpartyResponse } from "../types.js"
 
 type Variables = { db: any }
 
@@ -12,6 +12,15 @@ function sanitizeFtsQuery(input: string): string {
   const tokens = sanitized.split(" ").filter(t => t.length > 0)
   if (tokens.length === 0) return ""
   return tokens.map(t => `"${t}"`).join(" ")
+}
+
+export function periodToTimestamp(period: string): number | null {
+  if (period === "all") return null
+  const now = Math.floor(Date.now() / 1000)
+  const days: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 }
+  const d = days[period]
+  if (!d) return null
+  return now - d * 86400
 }
 
 const app = new Hono<{ Variables: Variables }>()
@@ -135,7 +144,6 @@ app.get("/", async (c) => {
 })
 
 app.get("/:address/stats", async (c) => {
-  const db = c.get("db")
   const address = c.req.param("address")
   const period = c.req.query("period") ?? "30d"
 
@@ -144,66 +152,98 @@ app.get("/:address/stats", async (c) => {
     return c.json({ error: `Invalid period. Must be one of: ${validPeriods.join(", ")}` }, 400)
   }
 
+  const db = c.get("db")
   const agent = db.select().from(agents).where(eq(agents.owner_address, address)).get()
   if (!agent) return c.json({ error: "Agent not found" }, 404)
 
+  const minTimestamp = periodToTimestamp(period)
+  const useWeekBuckets = period === "all"
+  const dateExpr = useWeekBuckets
+    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
+    : "date(timestamp, 'unixepoch', 'start of day')"
+  const ratingDateExpr = useWeekBuckets
+    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
+    : "date(timestamp, 'unixepoch', 'start of day')"
+
   const rawDb = getRawDb()
-  const now = Math.floor(Date.now() / 1000)
 
-  const periodDays: Record<string, number | null> = { "7d": 7, "30d": 30, "90d": 90, "all": null }
-  const days = periodDays[period]
-  const cutoff = days !== null ? now - days * 86400 : 0
-  const interactionTimeFilter = days !== null ? "AND i.timestamp >= ?" : ""
-  const ratingTimeFilter = days !== null ? "AND timestamp >= ?" : ""
-  const statsParams = days !== null ? [address, address, cutoff] : [address, address]
-  const ratingParams = days !== null ? [address, cutoff] : [address]
+  const volumeRows = minTimestamp !== null
+    ? rawDb.prepare(
+        `SELECT ${dateExpr} as date, SUM(CAST(amount AS REAL)) as volume
+         FROM interactions WHERE provider_address = ? AND timestamp >= ?
+         GROUP BY date ORDER BY date ASC LIMIT 90`
+      ).all(address, minTimestamp) as Array<{ date: string; volume: number }>
+    : rawDb.prepare(
+        `SELECT ${dateExpr} as date, SUM(CAST(amount AS REAL)) as volume
+         FROM interactions WHERE provider_address = ?
+         GROUP BY date ORDER BY date ASC LIMIT 90`
+      ).all(address) as Array<{ date: string; volume: number }>
 
-  const stats = rawDb.prepare(
-    `SELECT
-       COUNT(*) as total_interactions,
-       COALESCE(SUM(CAST(i.amount AS REAL)), 0) as total_volume,
-       COUNT(DISTINCT CASE WHEN i.provider_address = ? THEN i.consumer_address ELSE i.provider_address END) as unique_counterparties
-     FROM interactions i
-     WHERE (i.provider_address = ? OR i.consumer_address = ?)
-     ${interactionTimeFilter}`
-  ).get(address, ...statsParams) as { total_interactions: number; total_volume: number; unique_counterparties: number }
+  const counterpartyParams = minTimestamp !== null
+    ? [address, minTimestamp, address, minTimestamp]
+    : [address, address]
+  const counterpartyWhere1 = minTimestamp !== null ? "AND timestamp >= ?" : ""
+  const counterpartyWhere2 = minTimestamp !== null ? "AND timestamp >= ?" : ""
+  const counterpartyDateExpr = useWeekBuckets
+    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
+    : "date(timestamp, 'unixepoch', 'start of day')"
 
-  const ratingRow = rawDb.prepare(
-    `SELECT AVG(score) as avg_rating FROM ratings WHERE provider_address = ? ${ratingTimeFilter}`
-  ).get(...ratingParams) as { avg_rating: number | null }
+  const counterpartyRows = rawDb.prepare(
+    `SELECT date, COUNT(DISTINCT counterparty) as unique_counterparties
+     FROM (
+       SELECT ${counterpartyDateExpr} as date, consumer_address as counterparty
+       FROM interactions WHERE provider_address = ? ${counterpartyWhere1}
+       UNION ALL
+       SELECT ${counterpartyDateExpr} as date, provider_address as counterparty
+       FROM interactions WHERE consumer_address = ? ${counterpartyWhere2}
+     )
+     GROUP BY date ORDER BY date ASC LIMIT 90`
+  ).all(...counterpartyParams) as Array<{ date: string; unique_counterparties: number }>
 
-  const ratingDistRows = rawDb.prepare(
-    `SELECT score, COUNT(*) as count FROM ratings WHERE provider_address = ? ${ratingTimeFilter} GROUP BY score`
-  ).all(...ratingParams) as Array<{ score: number; count: number }>
+  const scoreTrajectoryParams = minTimestamp !== null
+    ? [address, minTimestamp]
+    : [address]
+  const scoreTrajectoryWhere = minTimestamp !== null ? "AND timestamp >= ?" : ""
 
-  const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-  for (const r of ratingDistRows) {
-    if (r.score >= 1 && r.score <= 5) ratingDistribution[r.score as 1 | 2 | 3 | 4 | 5] = r.count
-  }
+  const scoreRows = rawDb.prepare(
+    `SELECT ${ratingDateExpr} as date, AVG(score) as score
+     FROM ratings WHERE provider_address = ? ${scoreTrajectoryWhere}
+     GROUP BY date ORDER BY date ASC LIMIT 90`
+  ).all(...scoreTrajectoryParams) as Array<{ date: string; score: number }>
 
-  const maxDays = days !== null ? days : 90
-  const interactionsByDay = rawDb.prepare(
-    `SELECT date(i.timestamp, 'unixepoch') as date, COUNT(*) as count
-     FROM interactions i
-     WHERE (i.provider_address = ? OR i.consumer_address = ?)
-     ${interactionTimeFilter}
-     GROUP BY date(i.timestamp, 'unixepoch')
-     ORDER BY date ASC
-     LIMIT ?`
-  ).all(...statsParams, maxDays) as Array<{ date: string; count: number }>
+  const ratingBreakdown = rawDb.prepare(
+    `SELECT AVG(quality) as quality_avg, COUNT(quality) as quality_count,
+            AVG(speed) as speed_avg, COUNT(speed) as speed_count,
+            AVG(reliability) as reliability_avg, COUNT(reliability) as reliability_count,
+            AVG(communication) as communication_avg, COUNT(communication) as communication_count
+     FROM rich_ratings WHERE provider_address = ?`
+  ).get(address) as any
 
-  const response: AnalyticsResponse = {
+  const avgRatingRow = rawDb.prepare(
+    `SELECT AVG(score) as avg_score FROM ratings WHERE provider_address = ?`
+  ).get(address) as { avg_score: number | null }
+
+  const response: import("../types.js").AnalyticsResponse = {
     address,
     period,
-    total_interactions: stats.total_interactions,
-    total_volume: String(stats.total_volume),
-    unique_counterparties: stats.unique_counterparties,
-    avg_rating: ratingRow.avg_rating !== null ? Math.round(ratingRow.avg_rating * 100) / 100 : null,
-    rating_distribution: ratingDistribution,
-    interactions_by_day: interactionsByDay,
+    volume_over_time: volumeRows.map(r => ({ date: r.date, volume: String(r.volume) })),
+    counterparty_growth: counterpartyRows,
+    score_trajectory: scoreRows,
+    rating_breakdown: {
+      quality: { avg: ratingBreakdown?.quality_avg ?? 0, count: ratingBreakdown?.quality_count ?? 0 },
+      speed: { avg: ratingBreakdown?.speed_avg ?? 0, count: ratingBreakdown?.speed_count ?? 0 },
+      reliability: { avg: ratingBreakdown?.reliability_avg ?? 0, count: ratingBreakdown?.reliability_count ?? 0 },
+      communication: { avg: ratingBreakdown?.communication_avg ?? 0, count: ratingBreakdown?.communication_count ?? 0 },
+    },
+    summary: {
+      total_volume: agent.total_economic_volume,
+      total_interactions: Number(agent.verified_interactions_count),
+      unique_counterparties: Number(agent.unique_counterparties_count),
+      avg_rating: avgRatingRow?.avg_score ? Math.round((avgRatingRow.avg_score / 20) * 10) / 10 : 0,
+    },
   }
 
-  return c.json<AnalyticsResponse>(response)
+  return c.json(response)
 })
 
 app.get("/:address", async (c) => {

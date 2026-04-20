@@ -104,10 +104,14 @@ export interface CounterpartyResponse {
 export interface AnalyticsResponse {
   address: string
   period: string
-  total_interactions: number
-  total_volume: string
-  unique_counterparties: number
-  avg_rating: number | null
-  rating_distribution: { 1: number; 2: number; 3: number; 4: number; 5: number }
-  interactions_by_day: Array<{ date: string; count: number }>
+  volume_over_time: Array<{ date: string; volume: string }>
+  counterparty_growth: Array<{ date: string; unique_counterparties: number }>
+  score_trajectory: Array<{ date: string; score: number }>
+  rating_breakdown: Record<string, { avg: number; count: number }>
+  summary: {
+    total_volume: string
+    total_interactions: number
+    unique_counterparties: number
+    avg_rating: number
+  }
 }
