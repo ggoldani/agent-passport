@@ -1,10 +1,11 @@
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import Database from "better-sqlite3"
 import * as schema from "./schema.js"
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null
+let _rawDb: Database.Database | null = null
 
 export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof schema>> {
   if (_db) return _db
@@ -13,12 +14,12 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }
-  const sqlite = new Database(resolvedPath)
-  sqlite.pragma("journal_mode = WAL")
-  sqlite.pragma("foreign_keys = ON")
-  sqlite.pragma("busy_timeout = 5000")
+  _rawDb = new Database(resolvedPath)
+  _rawDb.pragma("journal_mode = WAL")
+  _rawDb.pragma("foreign_keys = ON")
+  _rawDb.pragma("busy_timeout = 5000")
 
-  sqlite.exec(`
+  _rawDb.exec(`
     CREATE TABLE IF NOT EXISTS agents (
       owner_address TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -62,8 +63,93 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
     CREATE INDEX IF NOT EXISTS idx_interactions_provider ON interactions(provider_address);
     CREATE INDEX IF NOT EXISTS idx_ratings_provider ON ratings(provider_address);
     CREATE INDEX IF NOT EXISTS idx_ratings_tx_hash ON ratings(interaction_tx_hash);
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS agents_fts USING fts5(name, description, content=agents, content_rowid=rowid);
+
+    CREATE TRIGGER IF NOT EXISTS agents_fts_insert AFTER INSERT ON agents BEGIN
+      INSERT INTO agents_fts(rowid, name, description) VALUES (NEW.rowid, NEW.name, NEW.description);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS agents_fts_update AFTER UPDATE ON agents BEGIN
+      INSERT INTO agents_fts(agents_fts, rowid, name, description)
+      VALUES ('delete', OLD.rowid, OLD.name, OLD.description);
+      INSERT INTO agents_fts(rowid, name, description) VALUES (NEW.rowid, NEW.name, NEW.description);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS agents_fts_delete AFTER DELETE ON agents BEGIN
+      INSERT INTO agents_fts(agents_fts, rowid, name, description)
+      VALUES ('delete', OLD.rowid, OLD.name, OLD.description);
+    END;
+
+    CREATE TABLE IF NOT EXISTS rich_ratings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      interaction_tx_hash TEXT NOT NULL UNIQUE,
+      quality INTEGER,
+      speed INTEGER,
+      reliability INTEGER,
+      communication INTEGER,
+      comment TEXT,
+      submitted_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agents_score ON agents(score);
+    CREATE INDEX IF NOT EXISTS idx_agents_interactions ON agents(verified_interactions_count);
+    CREATE INDEX IF NOT EXISTS idx_agents_created ON agents(created_at);
+    CREATE INDEX IF NOT EXISTS idx_interactions_timestamp ON interactions(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_interactions_consumer ON interactions(consumer_address);
   `)
 
-  _db = drizzle(sqlite, { schema })
+  const existingColumns = _rawDb.prepare("SELECT name FROM pragma_table_info('agents')").all() as { name: string }[]
+  const columnNames = new Set(existingColumns.map(c => c.name))
+  if (!columnNames.has("trust_tier")) {
+    _rawDb.exec("ALTER TABLE agents ADD COLUMN trust_tier TEXT")
+  }
+
+  const ftsCount = _rawDb.prepare("SELECT COUNT(*) as count FROM agents_fts").get() as { count: number }
+  if (ftsCount.count === 0) {
+    const agentCount = _rawDb.prepare("SELECT COUNT(*) as count FROM agents").get() as { count: number }
+    if (agentCount.count > 0) {
+      _rawDb.exec("INSERT INTO agents_fts(rowid, name, description) SELECT rowid, name, description FROM agents")
+    }
+  }
+
+  const richRatingsCount = _rawDb.prepare("SELECT COUNT(*) as count FROM rich_ratings").get() as { count: number }
+  if (richRatingsCount.count === 0) {
+    const ratingsFile = resolve(process.cwd(), ".agent-passport/ratings.json")
+    if (existsSync(ratingsFile)) {
+      try {
+        const raw = readFileSync(ratingsFile, "utf8")
+        const records = JSON.parse(raw)
+        if (Array.isArray(records)) {
+          const insert = _rawDb.prepare(
+            "INSERT INTO rich_ratings (interaction_tx_hash, quality, speed, reliability, communication, comment, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+          )
+          for (const r of records) {
+            if (typeof r.interaction_tx_hash === "string" && typeof r.submitted_at === "string") {
+              insert.run(
+                r.interaction_tx_hash,
+                r.quality ?? null,
+                r.speed ?? null,
+                r.reliability ?? null,
+                r.communication ?? null,
+                r.comment ?? null,
+                Math.floor(new Date(r.submitted_at).getTime() / 1000)
+              )
+            }
+          }
+          console.log(`Migrated ${records.length} rich ratings from ratings.json to DB`)
+        }
+      } catch (e) {
+        console.error("Failed to migrate rich ratings:", e)
+      }
+    }
+  }
+
+  _db = drizzle(_rawDb, { schema })
   return _db
+}
+
+export function getRawDb(): Database.Database {
+  if (!_rawDb) getDatabase()
+  return _rawDb!
 }

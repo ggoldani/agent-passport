@@ -43,3 +43,14 @@ export const indexerWatermark = sqliteTable("indexer_watermark", {
   ledger: integer().notNull(),
   updated_at: integer().notNull().default(0),
 })
+
+export const richRatings = sqliteTable("rich_ratings", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  interaction_tx_hash: text().notNull().unique(),
+  quality: integer(),
+  speed: integer(),
+  reliability: integer(),
+  communication: integer(),
+  comment: text(),
+  submitted_at: integer().notNull(),
+})
