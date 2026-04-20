@@ -14,13 +14,15 @@
     "db:generate": "drizzle-kit generate",
     "indexer": "tsx scripts/run-indexer.ts",
     "api": "tsx scripts/run-api.ts",
-    "sync": "tsx -e \"import { applyEnvFile } from './src/lib/env.js'; applyEnvFile(); import { syncHistorical } from './src/indexer/sync.js'; syncHistorical({ contractId: process.env.CONTRACT_ID, rpcUrl: process.env.STELLAR_RPC_URL }).catch(e => { console.error(e); process.exit(1); })\""
+    "sync": "tsx -e \"import { applyEnvFile } from './src/lib/env.js'; applyEnvFile(); import { syncHistorical } from './src/indexer/sync.js'; syncHistorical({ contractId: process.env.CONTRACT_ID, rpcUrl: process.env.STELLAR_RPC_URL }).catch(e => { console.error(e); process.exit(1); })\"",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.20.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.13",
