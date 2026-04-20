@@ -49,6 +49,7 @@ export const richRatings = sqliteTable("rich_ratings", {
   interaction_tx_hash: text().notNull().unique(),
   provider_address: text().notNull(),
   consumer_address: text().notNull(),
+  score: integer(),
   quality: integer(),
   speed: integer(),
   reliability: integer(),

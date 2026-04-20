@@ -27,9 +27,10 @@ export class RichRatingStore {
 
   submit(record: RichRatingRecord): void {
     this.db.prepare(`
-      INSERT INTO rich_ratings (interaction_tx_hash, provider_address, consumer_address, quality, speed, reliability, communication, comment, submitted_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO rich_ratings (interaction_tx_hash, provider_address, consumer_address, score, quality, speed, reliability, communication, comment, submitted_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(interaction_tx_hash) DO UPDATE SET
+        score = excluded.score,
         quality = excluded.quality,
         speed = excluded.speed,
         reliability = excluded.reliability,
@@ -39,6 +40,7 @@ export class RichRatingStore {
       record.interaction_tx_hash.toLowerCase(),
       record.provider_address,
       record.consumer_address,
+      record.score,
       record.quality,
       record.speed,
       record.reliability,

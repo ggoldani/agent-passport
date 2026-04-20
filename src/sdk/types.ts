@@ -90,7 +90,7 @@ export interface TrustCheckResult {
   address: string
   name: string
   score: number
-  trust_tier: string | null
+  trust_tier: "new" | "active" | "trusted"
   verified_interactions: number
   unique_counterparties: number
   last_active: number | null
