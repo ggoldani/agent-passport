@@ -60,6 +60,17 @@ type ApiPaginatedResponse<T> = {
   has_more: boolean
 }
 
+type ApiAgentResponseEnriched = ApiAgentResponse & {
+  trust_tier: string | null
+}
+
+type ApiCounterpartyResponse = {
+  address: string
+  interaction_count: number
+  total_volume: string
+  is_registered_agent: boolean
+}
+
 const API_BASE = process.env.API_URL ?? "http://localhost:3002"
 
 async function fetchFromApi<T>(path: string): Promise<T | null> {
@@ -72,7 +83,7 @@ async function fetchFromApi<T>(path: string): Promise<T | null> {
   }
 }
 
-function apiAgentToLeaderboardEntry(a: ApiAgentResponse): AgentLeaderboardEntry {
+function apiAgentToLeaderboardEntry(a: ApiAgentResponseEnriched): AgentLeaderboardEntry {
   return {
     ownerAddress: a.owner_address,
     name: a.name,
@@ -80,10 +91,11 @@ function apiAgentToLeaderboardEntry(a: ApiAgentResponse): AgentLeaderboardEntry 
     score: a.score,
     verifiedInteractionsCount: a.verified_interactions_count,
     totalEconomicVolume: a.total_economic_volume,
+    trustTier: a.trust_tier,
   }
 }
 
-function apiAgentToDashboardDetail(a: ApiAgentResponse, recentInteractions: (ApiInteractionResponse & { ratingScore: number | null })[]): AgentDashboardDetail {
+function apiAgentToDashboardDetail(a: ApiAgentResponseEnriched, recentInteractions: (ApiInteractionResponse & { ratingScore: number | null })[]): AgentDashboardDetail {
   return {
     agent: {
       ...apiAgentToLeaderboardEntry(a),
@@ -160,6 +172,10 @@ class ReadOnlyAgentPassportTransport implements AgentPassportTransport {
 
   async write(): Promise<never> {
     throw new Error("Dashboard transport is read-only");
+  }
+
+  async fetchApi<T>(_path: string): Promise<{ data: T; status: number }> {
+    throw new Error("fetchApi() is not available via ReadOnlyAgentPassportTransport.");
   }
 }
 
@@ -279,12 +295,13 @@ function mapProfileToLeaderboardEntry(profile: AgentProfile): AgentLeaderboardEn
       "verified_interactions_count"
     ),
     totalEconomicVolume: profile.total_economic_volume.toString(),
+    trustTier: null,
   };
 }
 
 export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> {
   try {
-    const response = await fetchFromApi<ApiPaginatedResponse<ApiAgentResponse>>("/agents?limit=100&sort=score&order=desc")
+    const response = await fetchFromApi<ApiPaginatedResponse<ApiAgentResponseEnriched>>("/agents?limit=100&sort=score&order=desc")
     if (response?.data) {
       return response.data.map(apiAgentToLeaderboardEntry)
     }
@@ -319,7 +336,7 @@ export async function getAgentDetail(
   ownerAddress: string
 ): Promise<AgentDashboardDetail | null> {
   try {
-    const agentResponse = await fetchFromApi<ApiAgentResponse>(`/agents/${ownerAddress}`)
+    const agentResponse = await fetchFromApi<ApiAgentResponseEnriched>(`/agents/${ownerAddress}`)
     if (agentResponse) {
       const [interactionsResponse, ratingsResponse] = await Promise.all([
         fetchFromApi<ApiPaginatedResponse<ApiInteractionResponse>>(
@@ -409,4 +426,16 @@ function mapInteractionSummary(
     occurredAt: formatTimestamp(interaction.timestamp) ?? "Unknown time",
     ratingScore,
   };
+}
+
+export async function searchAgents(params: Record<string, string>): Promise<ApiPaginatedResponse<ApiAgentResponseEnriched> | null> {
+  const qs = new URLSearchParams(params).toString()
+  return fetchFromApi<ApiPaginatedResponse<ApiAgentResponseEnriched>>(`/agents?${qs}`)
+}
+
+export async function getCounterparties(address: string, limit = 10): Promise<ApiCounterpartyResponse[]> {
+  const response = await fetchFromApi<{ data: ApiCounterpartyResponse[] }>(
+    `/agents/${address}/counterparties?limit=${limit}`
+  )
+  return response?.data ?? []
 }

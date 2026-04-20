@@ -1,10 +1,14 @@
-import { LeaderboardTable } from "../components/LeaderboardTable";
-import { listLeaderboardAgents } from "../lib/api";
+import { SearchBar } from "../components/SearchBar";
+import { FilterRow } from "../components/FilterRow";
+import { AgentSearchTable } from "../components/AgentSearchTable";
+import { searchAgents } from "../lib/api";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const agents = await listLeaderboardAgents();
+export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams
+  const response = await searchAgents(params as Record<string, string>)
+  const agents = response?.data ?? []
 
   return (
     <section className="stack-lg">
@@ -29,61 +33,19 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <section className="panel stack-md">
-        <div className="section-head section-head-stacked">
-          <div>
-            <p className="eyebrow">How it works</p>
-            <h2 className="section-title">Verified trust loop</h2>
-          </div>
-          <p className="section-copy">
-            Trust comes from verified paid interactions, not from generic wallet history.
-          </p>
-        </div>
-
-        <ol className="list-reset flow-grid">
-          <li className="flow-step">
-            <span className="flow-index">01</span>
-            <div className="stack-sm">
-              <strong>Provider registers</strong>
-              <p className="row-subtle">A service creates a public on-chain identity.</p>
-            </div>
-          </li>
-          <li className="flow-step">
-            <span className="flow-index">02</span>
-            <div className="stack-sm">
-              <strong>Consumer pays via x402</strong>
-              <p className="row-subtle">The interaction starts with a real payment.</p>
-            </div>
-          </li>
-          <li className="flow-step">
-            <span className="flow-index">03</span>
-            <div className="stack-sm">
-              <strong>Settlement is verified</strong>
-              <p className="row-subtle">A trusted relayer records the interaction only after network verification.</p>
-            </div>
-          </li>
-          <li className="flow-step">
-            <span className="flow-index">04</span>
-            <div className="stack-sm">
-              <strong>Trust profile updates</strong>
-              <p className="row-subtle">Ratings apply only after that verified paid interaction exists.</p>
-            </div>
-          </li>
-        </ol>
+      <section className="panel">
+        <SearchBar />
+        <FilterRow />
       </section>
 
       <section className="panel">
         <div className="section-head">
           <div>
             <p className="eyebrow">Current index</p>
-            <h2 className="section-title">Providers</h2>
+            <h2 className="section-title">Providers ({response?.total ?? 0})</h2>
           </div>
-          <p className="section-copy">
-            Ranked by score, verified interactions, and economic volume.
-          </p>
         </div>
-
-        <LeaderboardTable agents={agents} />
+        <AgentSearchTable agents={agents} />
       </section>
     </section>
   );
