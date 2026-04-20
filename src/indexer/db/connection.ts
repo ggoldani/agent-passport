@@ -84,6 +84,8 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
     CREATE TABLE IF NOT EXISTS rich_ratings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       interaction_tx_hash TEXT NOT NULL UNIQUE,
+      provider_address TEXT NOT NULL,
+      consumer_address TEXT NOT NULL,
       quality INTEGER,
       speed INTEGER,
       reliability INTEGER,
@@ -105,6 +107,15 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
     _rawDb.exec("ALTER TABLE agents ADD COLUMN trust_tier TEXT")
   }
 
+  const richRatingsColumns = _rawDb.prepare("SELECT name FROM pragma_table_info('rich_ratings')").all() as { name: string }[]
+  const richRatingsColumnNames = new Set(richRatingsColumns.map(c => c.name))
+  if (!richRatingsColumnNames.has("provider_address")) {
+    _rawDb.exec("ALTER TABLE rich_ratings ADD COLUMN provider_address TEXT NOT NULL DEFAULT ''")
+  }
+  if (!richRatingsColumnNames.has("consumer_address")) {
+    _rawDb.exec("ALTER TABLE rich_ratings ADD COLUMN consumer_address TEXT NOT NULL DEFAULT ''")
+  }
+
   const ftsCount = _rawDb.prepare("SELECT COUNT(*) as count FROM agents_fts").get() as { count: number }
   if (ftsCount.count === 0) {
     const agentCount = _rawDb.prepare("SELECT COUNT(*) as count FROM agents").get() as { count: number }
@@ -122,12 +133,14 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
         const records = JSON.parse(raw)
         if (Array.isArray(records)) {
           const insert = _rawDb.prepare(
-            "INSERT INTO rich_ratings (interaction_tx_hash, quality, speed, reliability, communication, comment, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO rich_ratings (interaction_tx_hash, provider_address, consumer_address, quality, speed, reliability, communication, comment, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           for (const r of records) {
             if (typeof r.interaction_tx_hash === "string" && typeof r.submitted_at === "string") {
               insert.run(
                 r.interaction_tx_hash,
+                r.provider_address ?? "",
+                r.consumer_address ?? "",
                 r.quality ?? null,
                 r.speed ?? null,
                 r.reliability ?? null,

@@ -47,6 +47,8 @@ export const indexerWatermark = sqliteTable("indexer_watermark", {
 export const richRatings = sqliteTable("rich_ratings", {
   id: integer().primaryKey({ autoIncrement: true }),
   interaction_tx_hash: text().notNull().unique(),
+  provider_address: text().notNull(),
+  consumer_address: text().notNull(),
   quality: integer(),
   speed: integer(),
   reliability: integer(),
