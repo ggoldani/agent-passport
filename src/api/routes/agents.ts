@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { eq, desc, asc, sql } from "drizzle-orm"
 import { agents } from "../../indexer/db/schema.js"
+import { getRawDb } from "../../indexer/db/connection.js"
 import { formatAgent } from "../types.js"
 import type { PaginatedResponse, AgentResponse } from "../types.js"
 
@@ -10,26 +11,110 @@ const app = new Hono<{ Variables: Variables }>()
 
 app.get("/", async (c) => {
   const db = c.get("db")
+  const q = c.req.query("q")?.trim()
+  const tags = c.req.query("tags")?.trim().split(",").filter(Boolean)
+  const minScore = Number(c.req.query("minScore")) || 0
+  const maxScore = Number(c.req.query("maxScore")) || 100
+  const minInteractions = Number(c.req.query("minInteractions")) || 0
+  const maxInteractions = Number(c.req.query("maxInteractions")) || Number.MAX_SAFE_INTEGER
+  const minVolume = c.req.query("minVolume")
+  const maxVolume = c.req.query("maxVolume")
+  const registeredBefore = Number(c.req.query("registeredBefore")) || 0
+  const registeredAfter = Number(c.req.query("registeredAfter")) || 0
+  const hasServiceUrl = c.req.query("hasServiceUrl")
+  const sortBy = c.req.query("sortBy") ?? c.req.query("sort") ?? "score"
+  const sortOrder = c.req.query("sortOrder") !== "asc" ? "desc" : "asc"
   const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 20, 100))
-  const sort = c.req.query("sort") ?? "score"
-  const order = c.req.query("order") === "asc" ? asc : desc
 
-  const sortMap: Record<string, any> = {
-    score: agents.score,
-    interactions: agents.verified_interactions_count,
-    volume: sql`CAST(${agents.total_economic_volume} AS REAL)`,
-    created: agents.created_at,
+  if (sortBy === "relevance" && !q) {
+    return c.json({ error: "sortBy=relevance requires a search query (q parameter)" }, 400)
   }
-  const sortColumn = sortMap[sort] ?? agents.score
 
-  const [{ count: total }] = await db.select({ count: sql<number>`count(*)` }).from(agents)
-  const rows = await db
-    .select()
-    .from(agents)
-    .orderBy(order(sortColumn))
-    .limit(limit + 1)
+  const conditions: any[] = []
+
+  if (q) {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM agents_fts
+      WHERE agents_fts MATCH ${q}
+      AND agents_fts.rowid = agents.rowid
+    )`)
+  }
+
+  if (tags && tags.length > 0) {
+    for (const tag of tags) {
+      conditions.push(sql`EXISTS (
+        SELECT 1 FROM json_each(agents.tags) WHERE json_each.value = ${tag}
+      )`)
+    }
+  }
+
+  if (minScore > 0) conditions.push(sql`${agents.score} >= ${minScore}`)
+  if (maxScore < 100) conditions.push(sql`${agents.score} <= ${maxScore}`)
+  if (minInteractions > 0) conditions.push(sql`${agents.verified_interactions_count} >= ${minInteractions}`)
+  if (maxInteractions < Number.MAX_SAFE_INTEGER) conditions.push(sql`${agents.verified_interactions_count} <= ${maxInteractions}`)
+  if (minVolume) conditions.push(sql`CAST(${agents.total_economic_volume} AS REAL) >= CAST(${minVolume} AS REAL)`)
+  if (maxVolume) conditions.push(sql`CAST(${agents.total_economic_volume} AS REAL) <= CAST(${maxVolume} AS REAL)`)
+  if (registeredBefore > 0) conditions.push(sql`${agents.created_at} <= ${registeredBefore}`)
+  if (registeredAfter > 0) conditions.push(sql`${agents.created_at} >= ${registeredAfter}`)
+  if (hasServiceUrl === "true" || hasServiceUrl === "1" || hasServiceUrl === "") {
+    conditions.push(sql`${agents.service_url} IS NOT NULL`)
+  }
+
+  const where = conditions.length > 0 ? sql.join(conditions, sql` AND `) : undefined
+
+  const sortColumn = sortBy === "score" ? agents.score
+    : sortBy === "interactions" ? agents.verified_interactions_count
+    : sortBy === "volume" ? sql`CAST(${agents.total_economic_volume} AS REAL)`
+    : sortBy === "created" ? agents.created_at
+    : agents.score
+
+  const orderFn = sortOrder === "asc" ? asc : desc
+
+  let rows: any[]
+
+  if (q && sortBy === "relevance") {
+    const rawDb = getRawDb()
+    const nonFtsConditions: string[] = []
+    const params: any[] = []
+
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        nonFtsConditions.push(`EXISTS (SELECT 1 FROM json_each(agents.tags) WHERE json_each.value = ?)`)
+        params.push(tag)
+      }
+    }
+    if (minScore > 0) { nonFtsConditions.push("agents.score >= ?"); params.push(minScore) }
+    if (maxScore < 100) { nonFtsConditions.push("agents.score <= ?"); params.push(maxScore) }
+    if (minInteractions > 0) { nonFtsConditions.push("agents.verified_interactions_count >= ?"); params.push(minInteractions) }
+    if (maxInteractions < Number.MAX_SAFE_INTEGER) { nonFtsConditions.push("agents.verified_interactions_count <= ?"); params.push(maxInteractions) }
+    if (minVolume) { nonFtsConditions.push("CAST(agents.total_economic_volume AS REAL) >= CAST(? AS REAL)"); params.push(minVolume) }
+    if (maxVolume) { nonFtsConditions.push("CAST(agents.total_economic_volume AS REAL) <= CAST(? AS REAL)"); params.push(maxVolume) }
+    if (registeredBefore > 0) { nonFtsConditions.push("agents.created_at <= ?"); params.push(registeredBefore) }
+    if (registeredAfter > 0) { nonFtsConditions.push("agents.created_at >= ?"); params.push(registeredAfter) }
+    if (hasServiceUrl === "true" || hasServiceUrl === "1" || hasServiceUrl === "") {
+      nonFtsConditions.push("agents.service_url IS NOT NULL")
+    }
+
+    const whereClause = nonFtsConditions.length > 0 ? `AND ${nonFtsConditions.join(" AND ")}` : ""
+    const orderClause = sortOrder === "asc" ? "ASC" : "DESC"
+
+    rows = rawDb.prepare(
+      `SELECT agents.* FROM agents_fts
+       INNER JOIN agents ON agents.rowid = agents_fts.rowid
+       WHERE agents_fts MATCH ? ${whereClause}
+       ORDER BY bm25(agents_fts) ${orderClause}
+       LIMIT ?`
+    ).all(q, ...params, limit + 1) as any[]
+  } else {
+    let query = db.select().from(agents)
+    if (where) query = query.where(where)
+    rows = await query.orderBy(orderFn(sortColumn)).limit(limit + 1).all()
+  }
+
   const hasMore = rows.length > limit
   const data = rows.slice(0, limit).map(formatAgent)
+
+  const [{ count: total }] = await db.select({ count: sql<number>`count(*)` }).from(agents).where(where)
 
   return c.json<PaginatedResponse<AgentResponse>>({ data, total, has_more: hasMore })
 })
