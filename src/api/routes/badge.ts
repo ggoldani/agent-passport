@@ -33,9 +33,11 @@ const THEMES: Record<string, { bg: string; text: string; border: string; subtle:
 
 const app = new Hono<{ Variables: Variables }>()
 
-app.get("/:address.svg", async (c) => {
+app.get("/:address{.+}", async (c) => {
   const db = c.get("db")
-  const address = c.req.param("address")!
+  const fullPath = c.req.param("address")
+  const address = fullPath.replace(/\.svg$/, "")
+  if (!address) return c.json({ error: "Address required" }, 400)
   const theme = c.req.query("theme") === "dark" ? "dark" : "light"
   const size = SIZES[c.req.query("size") ?? "medium"] ?? SIZES.medium
   const colors = THEMES[theme]
