@@ -71,14 +71,12 @@ export function rateLimit(opts: RateLimitConfig) {
       c.header("Retry-After", String(retryAfter))
       c.header("X-RateLimit-Limit", String(effectiveMax))
       c.header("X-RateLimit-Remaining", "0")
-      c.header("X-Priority-Tier", isPriority ? "trusted" : "standard")
       return c.json({ error: "Rate limit exceeded", retry_after_seconds: retryAfter }, 429)
     }
 
     bucket.tokens -= 1
     c.header("X-RateLimit-Limit", String(effectiveMax))
     c.header("X-RateLimit-Remaining", String(Math.floor(bucket.tokens)))
-    c.header("X-Priority-Tier", isPriority ? "trusted" : "standard")
     await next()
   })
 }
