@@ -29,4 +29,8 @@ describe("computeTrustTier", () => {
   it("returns 'active' just below trusted threshold", () => {
     expect(computeTrustTier(19, 75, 5)).toBe("active")
   })
+
+  it("returns 'new' for zero inputs", () => {
+    expect(computeTrustTier(0, 0, 0)).toBe("new")
+  })
 })
