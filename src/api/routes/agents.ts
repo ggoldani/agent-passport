@@ -7,6 +7,13 @@ import type { PaginatedResponse, AgentResponse } from "../types.js"
 
 type Variables = { db: any }
 
+function sanitizeFtsQuery(input: string): string {
+  let sanitized = input.replace(/["*()]/g, " ").replace(/\s+/g, " ").trim()
+  const tokens = sanitized.split(" ").filter(t => t.length > 0)
+  if (tokens.length === 0) return ""
+  return tokens.map(t => `"${t}"`).join(" ")
+}
+
 const app = new Hono<{ Variables: Variables }>()
 
 app.get("/", async (c) => {
@@ -30,12 +37,20 @@ app.get("/", async (c) => {
     return c.json({ error: "sortBy=relevance requires a search query (q parameter)" }, 400)
   }
 
+  let sanitizedQ: string | undefined
+  if (q) {
+    sanitizedQ = sanitizeFtsQuery(q)
+    if (!sanitizedQ) {
+      return c.json({ error: "Search query contains no valid terms" }, 400)
+    }
+  }
+
   const conditions: any[] = []
 
-  if (q) {
+  if (sanitizedQ) {
     conditions.push(sql`EXISTS (
       SELECT 1 FROM agents_fts
-      WHERE agents_fts MATCH ${q}
+      WHERE agents_fts MATCH ${sanitizedQ}
       AND agents_fts.rowid = agents.rowid
     )`)
   }
@@ -104,7 +119,7 @@ app.get("/", async (c) => {
        WHERE agents_fts MATCH ? ${whereClause}
        ORDER BY bm25(agents_fts) ${orderClause}
        LIMIT ?`
-    ).all(q, ...params, limit + 1) as any[]
+    ).all(sanitizedQ!, ...params, limit + 1) as any[]
   } else {
     let query = db.select().from(agents)
     if (where) query = query.where(where)
