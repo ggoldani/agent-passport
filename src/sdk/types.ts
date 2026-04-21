@@ -79,3 +79,20 @@ export interface RichRatingRecord {
   comment: string | null
   submitted_at: string
 }
+
+export interface TrustCheckOptions {
+  threshold?: number
+  minInteractions?: number
+}
+
+export interface TrustCheckResult {
+  trusted: boolean
+  address: string
+  name: string
+  score: number
+  trust_tier: "new" | "active" | "trusted"
+  verified_interactions: number
+  unique_counterparties: number
+  last_active: number | null
+  checked_at: string
+}

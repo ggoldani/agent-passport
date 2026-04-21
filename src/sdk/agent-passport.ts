@@ -10,6 +10,8 @@ import type {
   RatingRecord,
   RichRatingInput,
   RichRatingRecord,
+  TrustCheckOptions,
+  TrustCheckResult,
 } from "./types.js"
 
 export const AGENT_PASSPORT_READ_METHODS = [
@@ -77,6 +79,8 @@ export interface AgentPassportTransport {
     method: M,
     args: AgentPassportMethodArgs[M],
   ): Promise<AgentPassportMethodResult[M]>
+
+  fetchApi<T>(path: string): Promise<{ data: T; status: number }>
 }
 
 export interface AgentPassportClientOptions {
@@ -171,5 +175,19 @@ export class AgentPassportClient {
       comment: input.comment ?? null,
       submitted_at: new Date().toISOString(),
     }))
+  }
+
+  async trustCheck(
+    address: Address,
+    options: TrustCheckOptions = {},
+  ): Promise<TrustCheckResult> {
+    const params = new URLSearchParams()
+    if (options.threshold !== undefined) params.set("threshold", String(options.threshold))
+    if (options.minInteractions !== undefined) params.set("minInteractions", String(options.minInteractions))
+    const qs = params.toString()
+    const path = `/trust-check/${address}${qs ? `?${qs}` : ""}`
+    const { data, status } = await this.transport.fetchApi<TrustCheckResult>(path)
+    if (status === 404) throw new Error(`Agent not found: ${address}`)
+    return data
   }
 }

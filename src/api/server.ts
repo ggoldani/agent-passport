@@ -8,7 +8,8 @@ import healthRoutes from "./routes/health.js"
 import agentsRoutes from "./routes/agents.js"
 import interactionsRoutes from "./routes/interactions.js"
 import ratingsRoutes from "./routes/ratings.js"
-import searchRoutes from "./routes/search.js"
+import trustCheckRoutes from "./routes/trust-check.js"
+import badgeRoutes from "./routes/badge.js"
 
 type Variables = { db: any }
 
@@ -23,13 +24,15 @@ export function createApiServer(dbPath?: string) {
   })
 
   app.use("*", rateLimit({ windowMs: 60_000, max: 300 }))
-  app.use("/search/*", rateLimit({ windowMs: 60_000, max: 60 }))
+  app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 60 }))
 
   app.route("/", healthRoutes)
-  app.route("/agents", agentsRoutes)
+  app.route("/trust-check", trustCheckRoutes)
+  app.route("/badge", badgeRoutes)
+
   app.route("/agents/:address/interactions", interactionsRoutes)
   app.route("/agents/:address/ratings", ratingsRoutes)
-  app.route("/search", searchRoutes)
+  app.route("/agents", agentsRoutes)
 
   app.get("/ratings/:txHash", async (c) => {
     const db = c.get("db")

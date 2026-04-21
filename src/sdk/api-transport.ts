@@ -115,4 +115,8 @@ export class TrustApiTransport implements AgentPassportTransport {
       timestamp: BigInt(data.timestamp),
     }
   }
+
+  async fetchApi<T>(path: string): Promise<{ data: T; status: number }> {
+    return this.fetchJson<T>(path)
+  }
 }

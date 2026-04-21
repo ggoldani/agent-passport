@@ -5,6 +5,7 @@ export type AgentLeaderboardEntry = {
   score: number;
   verifiedInteractionsCount: number;
   totalEconomicVolume: string;
+  trustTier: string | null;
 };
 
 export type AgentInteractionSummary = {

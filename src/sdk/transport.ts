@@ -142,4 +142,8 @@ export class SorobanRpcTransport implements AgentPassportTransport {
 
     return undefined as AgentPassportMethodResult[M]
   }
+
+  async fetchApi<T>(_path: string): Promise<{ data: T; status: number }> {
+    throw new Error("fetchApi() is not available via SorobanRpcTransport. Use TrustApiTransport for API calls.")
+  }
 }

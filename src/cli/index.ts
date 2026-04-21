@@ -54,6 +54,7 @@ export const AGENT_PASSPORT_CLI_COMMANDS = [
   "agent_list",
   "agent_rate",
   "agent_interactions",
+  "trust_verify",
 ] as const
 
 export type AgentPassportCliCommand =
@@ -708,6 +709,52 @@ function runTrustCheckCommand(args: string[]): number {
   return 0
 }
 
+function runTrustVerifyCommand(args: string[]): number {
+  if (args.length === 0 || args[0] === "help" || args[0] === "--help") {
+    writeStdoutLine("Usage: npm run cli -- trust_verify <G...> [--threshold 50] [--min-interactions 0]\n\nVerify if an agent meets trust criteria.")
+    return 0
+  }
+
+  const address = args[0]
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    writeStderrLine(`Invalid Stellar address: ${address}`)
+    return 1
+  }
+
+  const { options, positionals } = parseOptionArgs(args.slice(1))
+  if (positionals.length > 0) {
+    writeStderrLine(`Unexpected positional arguments: ${positionals.join(" ")}`)
+    return 1
+  }
+
+  const threshold = Number(options["threshold"] ?? 50)
+  const minInteractions = Number(options["min-interactions"] ?? 0)
+
+  const client = createSdkClient()
+  client
+    .trustCheck(address, { threshold, minInteractions })
+    .then((result) => {
+      writeStdoutLine(`Trust Check: ${result.name} (${address})`)
+      writeStdoutLine(`  Trusted: ${result.trusted ? "YES" : "NO"}`)
+      writeStdoutLine(`  Score: ${result.score} / Tier: ${result.trust_tier ?? "N/A"}`)
+      writeStdoutLine(`  Interactions: ${result.verified_interactions} | Counterparties: ${result.unique_counterparties}`)
+      if (result.last_active) {
+        const ago = Math.floor((Date.now() - Number(result.last_active) * 1000) / 86400000)
+        writeStdoutLine(`  Last active: ${ago === 0 ? "today" : `${ago} day(s) ago`}`)
+      }
+      if (!result.trusted) {
+        if (result.score < threshold) writeStderrLine(`  Reason: score ${result.score} < threshold ${threshold}`)
+        if (result.verified_interactions < minInteractions) writeStderrLine(`  Reason: interactions ${result.verified_interactions} < min ${minInteractions}`)
+      }
+    })
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      writeStderrLine(`Trust verify failed: ${message}`)
+      process.exitCode = 1
+    })
+  return 0
+}
+
 export function runCli(argv: string[]): number {
   applyEnvFile()
   const command = argv[0]
@@ -746,6 +793,10 @@ export function runCli(argv: string[]): number {
 
   if (command === "agent_interactions") {
     return runAgentInteractionsCommand(argv.slice(1))
+  }
+
+  if (command === "trust_verify") {
+    return runTrustVerifyCommand(argv.slice(1))
   }
 
   writeStderrLine(`Command not implemented yet: ${command}`)
