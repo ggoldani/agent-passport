@@ -91,6 +91,48 @@ pub struct AgentDeregistered {
     pub owner_address: Address,
 }
 
+fn validate_profile_input(env: &Env, input: &AgentProfileInput) {
+    if input.name.len() == 0 {
+        panic_with_error!(env, Error::NameRequired);
+    }
+    if input.name.len() > MAX_NAME_LEN {
+        panic_with_error!(env, Error::NameTooLong);
+    }
+    if input.description.len() == 0 {
+        panic_with_error!(env, Error::DescriptionRequired);
+    }
+    if input.description.len() > MAX_DESC_LEN {
+        panic_with_error!(env, Error::DescriptionTooLong);
+    }
+    if let Some(url) = &input.service_url {
+        if url.len() > MAX_URL_LEN {
+            panic_with_error!(env, Error::ServiceUrlTooLong);
+        }
+    }
+    if let Some(url) = &input.mcp_server_url {
+        if url.len() > MAX_URL_LEN {
+            panic_with_error!(env, Error::McpServerUrlTooLong);
+        }
+    }
+    if let Some(url) = &input.payment_endpoint {
+        if url.len() > MAX_URL_LEN {
+            panic_with_error!(env, Error::PaymentEndpointTooLong);
+        }
+    }
+    if input.tags.len() > MAX_TAGS {
+        panic_with_error!(env, Error::TooManyTags);
+    }
+    let tags_ref = &input.tags;
+    let tag_count = tags_ref.len();
+    let mut ti: u32 = 0;
+    while ti < tag_count {
+        if tags_ref.get_unchecked(ti).len() > MAX_TAG_LEN {
+            panic_with_error!(env, Error::TagTooLong);
+        }
+        ti += 1;
+    }
+}
+
 #[contract]
 pub struct AgentPassport;
 
@@ -135,45 +177,7 @@ impl AgentPassport {
             panic_with_error!(&env, Error::OwnershipConflict);
         }
 
-        if input.name.len() == 0 {
-            panic_with_error!(&env, Error::NameRequired);
-        }
-        if input.name.len() > MAX_NAME_LEN {
-            panic_with_error!(&env, Error::NameTooLong);
-        }
-        if input.description.len() == 0 {
-            panic_with_error!(&env, Error::DescriptionRequired);
-        }
-        if input.description.len() > MAX_DESC_LEN {
-            panic_with_error!(&env, Error::DescriptionTooLong);
-        }
-        if let Some(url) = &input.service_url {
-            if url.len() > MAX_URL_LEN {
-                panic_with_error!(&env, Error::ServiceUrlTooLong);
-            }
-        }
-        if let Some(url) = &input.mcp_server_url {
-            if url.len() > MAX_URL_LEN {
-                panic_with_error!(&env, Error::McpServerUrlTooLong);
-            }
-        }
-        if let Some(url) = &input.payment_endpoint {
-            if url.len() > MAX_URL_LEN {
-                panic_with_error!(&env, Error::PaymentEndpointTooLong);
-            }
-        }
-        if input.tags.len() > MAX_TAGS {
-            panic_with_error!(&env, Error::TooManyTags);
-        }
-        let tags_ref = &input.tags;
-        let tag_count = tags_ref.len();
-        let mut ti: u32 = 0;
-        while ti < tag_count {
-            if tags_ref.get_unchecked(ti).len() > MAX_TAG_LEN {
-                panic_with_error!(&env, Error::TagTooLong);
-            }
-            ti += 1;
-        }
+        validate_profile_input(&env, &input);
 
         let created_at = env.ledger().timestamp();
         let profile = AgentProfile {
@@ -451,45 +455,7 @@ impl AgentPassport {
         let mut profile = read_profile(&env, &owner_address)
             .unwrap_or_else(|| panic_with_error!(&env, Error::ProfileNotFound));
 
-        if input.name.len() == 0 {
-            panic_with_error!(&env, Error::NameRequired);
-        }
-        if input.name.len() > MAX_NAME_LEN {
-            panic_with_error!(&env, Error::NameTooLong);
-        }
-        if input.description.len() == 0 {
-            panic_with_error!(&env, Error::DescriptionRequired);
-        }
-        if input.description.len() > MAX_DESC_LEN {
-            panic_with_error!(&env, Error::DescriptionTooLong);
-        }
-        if let Some(url) = &input.service_url {
-            if url.len() > MAX_URL_LEN {
-                panic_with_error!(&env, Error::ServiceUrlTooLong);
-            }
-        }
-        if let Some(url) = &input.mcp_server_url {
-            if url.len() > MAX_URL_LEN {
-                panic_with_error!(&env, Error::McpServerUrlTooLong);
-            }
-        }
-        if let Some(url) = &input.payment_endpoint {
-            if url.len() > MAX_URL_LEN {
-                panic_with_error!(&env, Error::PaymentEndpointTooLong);
-            }
-        }
-        if input.tags.len() > MAX_TAGS {
-            panic_with_error!(&env, Error::TooManyTags);
-        }
-        let tags_ref = &input.tags;
-        let tag_count = tags_ref.len();
-        let mut ti: u32 = 0;
-        while ti < tag_count {
-            if tags_ref.get_unchecked(ti).len() > MAX_TAG_LEN {
-                panic_with_error!(&env, Error::TagTooLong);
-            }
-            ti += 1;
-        }
+        validate_profile_input(&env, &input);
 
         profile.name = input.name;
         profile.description = input.description;

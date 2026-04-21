@@ -324,6 +324,26 @@ fn register_agent_rejects_too_many_tags() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #16)")]
+fn register_agent_rejects_tag_too_long() {
+    let env = Env::default();
+    let (_, client, _, _) = setup(&env);
+    let owner = Address::generate(&env);
+    let long_tag = String::from_str(&env, &"x".repeat(33));
+    let tags = Vec::from_array(&env, [long_tag]);
+    let input = AgentProfileInput {
+        name: String::from_str(&env, "name"),
+        description: String::from_str(&env, "desc"),
+        tags,
+        service_url: None,
+        mcp_server_url: None,
+        payment_endpoint: None,
+    };
+    env.mock_all_auths();
+    client.register_agent(&owner, &input);
+}
+
+#[test]
 fn register_agent_accepts_max_boundary_values() {
     let env = Env::default();
     let (_, client, _, _) = setup(&env);
