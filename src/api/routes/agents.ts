@@ -14,16 +14,25 @@ function sanitizeFtsQuery(input: string): string {
   return tokens.map(t => `"${t}"`).join(" ")
 }
 
+export function periodToTimestamp(period: string): number | null {
+  if (period === "all") return null
+  const now = Math.floor(Date.now() / 1000)
+  const days: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 }
+  const d = days[period]
+  if (!d) return null
+  return now - d * 86400
+}
+
 const app = new Hono<{ Variables: Variables }>()
 
 app.get("/", async (c) => {
   const db = c.get("db")
   const q = c.req.query("q")?.trim()
   const tags = c.req.query("tags")?.trim().split(",").filter(Boolean)
-  const minScore = Number(c.req.query("minScore")) || 0
-  const maxScore = Number(c.req.query("maxScore")) || 100
-  const minInteractions = Number(c.req.query("minInteractions")) || 0
-  const maxInteractions = Number(c.req.query("maxInteractions")) || Number.MAX_SAFE_INTEGER
+  const minScore = c.req.query("minScore") != null ? Number(c.req.query("minScore")) : 0
+  const maxScore = c.req.query("maxScore") != null ? Number(c.req.query("maxScore")) : 100
+  const minInteractions = c.req.query("minInteractions") != null ? Number(c.req.query("minInteractions")) : 0
+  const maxInteractions = c.req.query("maxInteractions") != null ? Number(c.req.query("maxInteractions")) : Number.MAX_SAFE_INTEGER
   const minVolume = c.req.query("minVolume")
   const maxVolume = c.req.query("maxVolume")
   const registeredBefore = Number(c.req.query("registeredBefore")) || 0
@@ -132,6 +141,127 @@ app.get("/", async (c) => {
   const [{ count: total }] = await db.select({ count: sql<number>`count(*)` }).from(agents).where(where)
 
   return c.json<PaginatedResponse<AgentResponse>>({ data, total, has_more: hasMore })
+})
+
+app.get("/:address/stats", async (c) => {
+  const address = c.req.param("address")
+  const period = c.req.query("period") ?? "30d"
+
+  const validPeriods = ["7d", "30d", "90d", "all"]
+  if (!validPeriods.includes(period)) {
+    return c.json({ error: `Invalid period. Must be one of: ${validPeriods.join(", ")}` }, 400)
+  }
+
+  const db = c.get("db")
+  const agent = db.select().from(agents).where(eq(agents.owner_address, address)).get()
+  if (!agent) return c.json({ error: "Agent not found" }, 404)
+
+  const minTimestamp = periodToTimestamp(period)
+  const useWeekBuckets = period === "all"
+  const dateExpr = useWeekBuckets
+    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
+    : "date(timestamp, 'unixepoch', 'start of day')"
+  const ratingDateExpr = useWeekBuckets
+    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
+    : "date(timestamp, 'unixepoch', 'start of day')"
+
+  const rawDb = getRawDb()
+
+  const volumeRows = minTimestamp !== null
+    ? rawDb.prepare(
+        `SELECT ${dateExpr} as date, SUM(CAST(amount AS REAL)) as volume
+         FROM interactions WHERE provider_address = ? AND timestamp >= ?
+         GROUP BY date ORDER BY date ASC LIMIT 90`
+      ).all(address, minTimestamp) as Array<{ date: string; volume: number }>
+    : rawDb.prepare(
+        `SELECT ${dateExpr} as date, SUM(CAST(amount AS REAL)) as volume
+         FROM interactions WHERE provider_address = ?
+         GROUP BY date ORDER BY date ASC LIMIT 90`
+      ).all(address) as Array<{ date: string; volume: number }>
+
+  const counterpartyParams = minTimestamp !== null
+    ? [address, minTimestamp, address, minTimestamp]
+    : [address, address]
+  const counterpartyWhere1 = minTimestamp !== null ? "AND timestamp >= ?" : ""
+  const counterpartyWhere2 = minTimestamp !== null ? "AND timestamp >= ?" : ""
+  const counterpartyDateExpr = useWeekBuckets
+    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
+    : "date(timestamp, 'unixepoch', 'start of day')"
+
+  const counterpartyRows = rawDb.prepare(
+    `SELECT date, COUNT(DISTINCT counterparty) as unique_counterparties
+     FROM (
+       SELECT ${counterpartyDateExpr} as date, consumer_address as counterparty
+       FROM interactions WHERE provider_address = ? ${counterpartyWhere1}
+       UNION ALL
+       SELECT ${counterpartyDateExpr} as date, provider_address as counterparty
+       FROM interactions WHERE consumer_address = ? ${counterpartyWhere2}
+     )
+     GROUP BY date ORDER BY date ASC LIMIT 90`
+  ).all(...counterpartyParams) as Array<{ date: string; unique_counterparties: number }>
+
+  const scoreTrajectoryParams = minTimestamp !== null
+    ? [address, minTimestamp]
+    : [address]
+  const scoreTrajectoryWhere = minTimestamp !== null ? "AND timestamp >= ?" : ""
+
+  const scoreRows = rawDb.prepare(
+    `SELECT ${ratingDateExpr} as date, AVG(score) as score
+     FROM ratings WHERE provider_address = ? ${scoreTrajectoryWhere}
+     GROUP BY date ORDER BY date ASC LIMIT 90`
+  ).all(...scoreTrajectoryParams) as Array<{ date: string; score: number }>
+
+  const ratingWhere = minTimestamp !== null ? "AND submitted_at >= ?" : ""
+  const ratingBreakdownParams = minTimestamp !== null ? [address, minTimestamp] : [address]
+
+  const ratingBreakdown = rawDb.prepare(
+    `SELECT AVG(quality) as quality_avg, COUNT(quality) as quality_count,
+            AVG(speed) as speed_avg, COUNT(speed) as speed_count,
+            AVG(reliability) as reliability_avg, COUNT(reliability) as reliability_count,
+            AVG(communication) as communication_avg, COUNT(communication) as communication_count
+     FROM rich_ratings WHERE provider_address = ? ${ratingWhere}`
+  ).get(...ratingBreakdownParams) as any
+
+  const avgRatingParams = minTimestamp !== null
+    ? [address, minTimestamp]
+    : [address]
+  const avgRatingWhere = minTimestamp !== null ? "AND timestamp >= ?" : ""
+
+  const avgRatingRow = rawDb.prepare(
+    `SELECT AVG(score) as avg_score FROM ratings WHERE provider_address = ? ${avgRatingWhere}`
+  ).get(...avgRatingParams) as { avg_score: number | null }
+
+  const summaryWhere = minTimestamp !== null ? "AND timestamp >= ?" : ""
+  const summaryParams = minTimestamp !== null ? [address, minTimestamp] : [address]
+
+  const summaryRow = rawDb.prepare(
+    `SELECT CAST(COUNT(*) AS INTEGER) as interactions,
+            cast(cast(sum(cast(amount as real)) as integer) as text) as volume,
+            COUNT(DISTINCT consumer_address) as counterparties
+     FROM interactions WHERE provider_address = ? ${summaryWhere}`
+  ).get(...summaryParams) as { interactions: number; volume: string; counterparties: number }
+
+  const response: import("../types.js").AnalyticsResponse = {
+    address,
+    period,
+    volume_over_time: volumeRows.map(r => ({ date: r.date, volume: String(r.volume) })),
+    counterparty_growth: counterpartyRows,
+    score_trajectory: scoreRows,
+    rating_breakdown: {
+      quality: { avg: ratingBreakdown?.quality_avg ?? 0, count: ratingBreakdown?.quality_count ?? 0 },
+      speed: { avg: ratingBreakdown?.speed_avg ?? 0, count: ratingBreakdown?.speed_count ?? 0 },
+      reliability: { avg: ratingBreakdown?.reliability_avg ?? 0, count: ratingBreakdown?.reliability_count ?? 0 },
+      communication: { avg: ratingBreakdown?.communication_avg ?? 0, count: ratingBreakdown?.communication_count ?? 0 },
+    },
+    summary: {
+      total_volume: summaryRow?.volume ?? "0",
+      total_interactions: summaryRow?.interactions ?? 0,
+      unique_counterparties: summaryRow?.counterparties ?? 0,
+      avg_rating: avgRatingRow?.avg_score ? Math.round((avgRatingRow.avg_score / 20) * 10) / 10 : 0,
+    },
+  }
+
+  return c.json(response)
 })
 
 app.get("/:address", async (c) => {

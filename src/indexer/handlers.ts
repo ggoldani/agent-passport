@@ -105,7 +105,7 @@ export function handleInteractionRegistered(db: Db, event: RawEvent): void {
 
     const currentVolume = BigInt(db.select({ v: agents.total_economic_volume })
       .from(agents).where(eq(agents.owner_address, providerAddress)).get()?.v ?? "0")
-    const newVolume = (currentVolume + BigInt(amount)).toString()
+    const newVolume = (currentVolume + BigInt(Math.floor(Number(amount)))).toString()
     const now = Math.floor(Date.now() / 1000)
 
     db.update(agents)

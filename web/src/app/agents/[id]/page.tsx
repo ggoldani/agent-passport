@@ -49,6 +49,9 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
         </div>
         <CounterpartyList counterparties={counterparties} />
       </section>
+      <Link className="text-link" href={`/agents/${id}/analytics`} style={{ display: "block" }}>
+        View Analytics →
+      </Link>
     </section>
   );
 }

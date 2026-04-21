@@ -44,7 +44,10 @@ export function formatUtcTimestamp(timestamp: string | null): string {
 }
 
 export function formatXlmAmount(stroops: string): string {
-  const value = BigInt(stroops);
+  if (!/^\d+(\.\d+)?$/.test(stroops)) return "0 XLM";
+  const value = stroops.includes(".")
+    ? BigInt(Math.floor(Number(stroops)))
+    : BigInt(stroops);
   const whole = value / STROOPS_PER_XLM;
   const fraction = value % STROOPS_PER_XLM;
 

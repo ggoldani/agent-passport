@@ -10,6 +10,9 @@ import type {
   RatingRecord,
   RichRatingInput,
   RichRatingRecord,
+  AnalyticsOptions,
+  AnalyticsResponse,
+  BadgeStatsResponse,
   TrustCheckOptions,
   TrustCheckResult,
 } from "./types.js"
@@ -187,6 +190,26 @@ export class AgentPassportClient {
     const qs = params.toString()
     const path = `/trust-check/${address}${qs ? `?${qs}` : ""}`
     const { data, status } = await this.transport.fetchApi<TrustCheckResult>(path)
+    if (status === 404) throw new Error(`Agent not found: ${address}`)
+    return data
+  }
+
+  async getAnalytics(
+    address: string,
+    options: AnalyticsOptions = {},
+  ): Promise<AnalyticsResponse> {
+    const params = new URLSearchParams()
+    if (options.period) params.set("period", options.period)
+    const qs = params.toString()
+    const path = `/agents/${address}/stats${qs ? `?${qs}` : ""}`
+    const { data, status } = await this.transport.fetchApi<AnalyticsResponse>(path)
+    if (status === 404) throw new Error(`Agent not found: ${address}`)
+    return data
+  }
+
+  async getBadgeStats(address: string): Promise<BadgeStatsResponse> {
+    const path = `/badge-stats/${address}`
+    const { data, status } = await this.transport.fetchApi<BadgeStatsResponse>(path)
     if (status === 404) throw new Error(`Agent not found: ${address}`)
     return data
   }

@@ -4,12 +4,15 @@ import { eq } from "drizzle-orm"
 import { ratings } from "../indexer/db/schema.js"
 import { getDatabase } from "../indexer/db/connection.js"
 import { rateLimit } from "./middleware/rate-limit.js"
+import { isValidStellarAddress } from "./validate.js"
 import healthRoutes from "./routes/health.js"
 import agentsRoutes from "./routes/agents.js"
 import interactionsRoutes from "./routes/interactions.js"
 import ratingsRoutes from "./routes/ratings.js"
 import trustCheckRoutes from "./routes/trust-check.js"
 import badgeRoutes from "./routes/badge.js"
+import badgeStatsRoutes from "./routes/badge-stats.js"
+import { WIDGET_JS } from "./widget.js"
 
 type Variables = { db: any }
 
@@ -23,16 +26,42 @@ export function createApiServer(dbPath?: string) {
     await next()
   })
 
-  app.use("*", rateLimit({ windowMs: 60_000, max: 300 }))
-  app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 60 }))
+  const SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+  }
+
+  app.use("*", async (c, next) => {
+    await next()
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+      c.header(key, value)
+    }
+  })
+
+  app.use("*", rateLimit({ windowMs: 60_000, max: 300, db }))
+  app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 60, db }))
+
+  app.get("/widget.js", (c) => {
+    return c.body(WIDGET_JS, 200, {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
+    })
+  })
 
   app.route("/", healthRoutes)
   app.route("/trust-check", trustCheckRoutes)
   app.route("/badge", badgeRoutes)
+  app.route("/badge-stats", badgeStatsRoutes)
 
   app.route("/agents/:address/interactions", interactionsRoutes)
   app.route("/agents/:address/ratings", ratingsRoutes)
   app.route("/agents", agentsRoutes)
+
+  app.onError((err, c) => {
+    console.error("Unhandled API error:", err)
+    return c.json({ error: "Internal server error" }, 500)
+  })
 
   app.get("/ratings/:txHash", async (c) => {
     const db = c.get("db")
