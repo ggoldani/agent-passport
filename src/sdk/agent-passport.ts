@@ -23,12 +23,19 @@ export const AGENT_PASSPORT_READ_METHODS = [
   "get_rating",
   "list_agents",
   "list_agent_interactions",
+  "get_relayers",
 ] as const
 
 export const AGENT_PASSPORT_WRITE_METHODS = [
   "init",
-  "update_relayer",
+  "add_relayer",
+  "remove_relayer",
+  "transfer_admin",
+  "accept_admin",
+  "cancel_admin_transfer",
   "register_agent",
+  "update_profile",
+  "deregister_agent",
   "register_interaction",
   "submit_rating",
 ] as const
@@ -47,20 +54,32 @@ export type AgentPassportMethodName = (typeof AGENT_PASSPORT_METHODS)[number]
 export interface AgentPassportMethodArgs {
   init: [admin: Address, authorized_relayer: Address]
   get_config: []
-  update_relayer: [admin: Address, authorized_relayer: Address]
+  get_relayers: []
+  add_relayer: [admin: Address, relayer: Address]
+  remove_relayer: [admin: Address, relayer: Address]
+  transfer_admin: [admin: Address, new_admin: Address]
+  accept_admin: [new_admin: Address]
+  cancel_admin_transfer: [admin: Address]
   register_agent: [owner_address: Address, input: AgentProfileInput]
   get_agent: [owner_address: Address]
   get_rating: [interaction_tx_hash: string]
-  list_agents: []
+  list_agents: [from: number, limit: number]
   register_interaction: [relayer: Address, interaction: InteractionRecord]
-  list_agent_interactions: [provider_address: Address]
+  list_agent_interactions: [provider_address: Address, from_seq: number, limit: number]
   submit_rating: [rating: RatingInput]
+  update_profile: [owner_address: Address, input: AgentProfileInput]
+  deregister_agent: [owner_address: Address]
 }
 
 export interface AgentPassportMethodResult {
   init: void
   get_config: Config
-  update_relayer: void
+  get_relayers: string[]
+  add_relayer: void
+  remove_relayer: void
+  transfer_admin: void
+  accept_admin: void
+  cancel_admin_transfer: void
   register_agent: void
   get_agent: AgentProfile
   get_rating: RatingRecord | null
@@ -68,6 +87,8 @@ export interface AgentPassportMethodResult {
   register_interaction: void
   list_agent_interactions: InteractionRecord[]
   submit_rating: void
+  update_profile: void
+  deregister_agent: void
 }
 
 export interface AgentPassportTransport {
@@ -132,8 +153,8 @@ export class AgentPassportClient {
     return this.readContract("get_rating", [interactionTxHash])
   }
 
-  listAgents(): Promise<AgentProfile[]> {
-    return this.readContract("list_agents", [])
+  listAgents(from = 0, limit = 100): Promise<AgentProfile[]> {
+    return this.readContract("list_agents", [from, limit])
   }
 
   registerInteraction(
@@ -146,8 +167,8 @@ export class AgentPassportClient {
     ])
   }
 
-  listAgentInteractions(providerAddress: Address): Promise<InteractionRecord[]> {
-    return this.readContract("list_agent_interactions", [providerAddress])
+  listAgentInteractions(providerAddress: Address, fromSeq = 0, limit = 100): Promise<InteractionRecord[]> {
+    return this.readContract("list_agent_interactions", [providerAddress, fromSeq, limit])
   }
 
   submitRating(rating: RatingInput): Promise<void> {
@@ -156,6 +177,38 @@ export class AgentPassportClient {
 
   getConfig(): Promise<Config> {
     return this.readContract("get_config", [])
+  }
+
+  getRelayers(): Promise<string[]> {
+    return this.readContract("get_relayers", [])
+  }
+
+  addRelayer(admin: Address, relayer: Address): Promise<void> {
+    return this.writeContract("add_relayer", [admin, relayer])
+  }
+
+  removeRelayer(admin: Address, relayer: Address): Promise<void> {
+    return this.writeContract("remove_relayer", [admin, relayer])
+  }
+
+  transferAdmin(admin: Address, newAdmin: Address): Promise<void> {
+    return this.writeContract("transfer_admin", [admin, newAdmin])
+  }
+
+  acceptAdmin(newAdmin: Address): Promise<void> {
+    return this.writeContract("accept_admin", [newAdmin])
+  }
+
+  cancelAdminTransfer(admin: Address): Promise<void> {
+    return this.writeContract("cancel_admin_transfer", [admin])
+  }
+
+  updateProfile(ownerAddress: Address, input: AgentProfileInput): Promise<void> {
+    return this.writeContract("update_profile", [ownerAddress, input])
+  }
+
+  deregisterAgent(ownerAddress: Address): Promise<void> {
+    return this.writeContract("deregister_agent", [ownerAddress])
   }
 
   submitRichRating(input: RichRatingInput): Promise<RichRatingRecord> {

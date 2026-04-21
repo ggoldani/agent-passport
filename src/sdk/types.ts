@@ -3,7 +3,8 @@ export type Bytes32 = string
 
 export interface Config {
   admin: Address
-  authorized_relayer: Address
+  pending_admin: string | null
+  admin_transfer_at: number
 }
 
 export interface AgentProfile {
