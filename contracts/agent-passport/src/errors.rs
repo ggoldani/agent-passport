@@ -28,4 +28,5 @@ pub enum Error {
     AlreadyRelayer = 22,
     NotRelayer = 23,
     ProfileNotFound = 24,
+    SelfInteractionNotAllowed = 25,
 }

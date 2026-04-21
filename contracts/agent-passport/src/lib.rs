@@ -248,6 +248,10 @@ impl AgentPassport {
             panic_with_error!(&env, Error::DuplicateTxHash);
         }
 
+        if interaction.provider_address == interaction.consumer_address {
+            panic_with_error!(&env, Error::SelfInteractionNotAllowed);
+        }
+
         let timestamp = env.ledger().timestamp();
 
         let mut provider_profile = read_profile(&env, &interaction.provider_address)

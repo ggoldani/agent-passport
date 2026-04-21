@@ -597,6 +597,35 @@ fn register_interaction_rejects_nonexistent_provider() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #25)")]
+fn register_interaction_rejects_provider_equals_consumer() {
+    let env = Env::default();
+    let (contract_id, client, _, relayer) = setup(&env);
+    let agent = Address::generate(&env);
+    register_agent(&env, &client, &agent);
+
+    let interaction = InteractionRecord {
+        provider_address: agent.clone(),
+        consumer_address: agent,
+        amount: 100,
+        tx_hash: BytesN::from_array(&env, &[52; 32]),
+        timestamp: 300,
+        service_label: None,
+    };
+    client
+        .mock_auths(&[MockAuth {
+            address: &relayer,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "register_interaction",
+                args: (&relayer, &interaction).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .register_interaction(&relayer, &interaction);
+}
+
+#[test]
 fn register_interaction_updates_provider_metrics() {
     let env = Env::default();
     let (contract_id, client, _, relayer) = setup(&env);
@@ -818,9 +847,11 @@ fn submit_rating_rejects_self_rating() {
     let env = Env::default();
     let (contract_id, client, _, relayer) = setup(&env);
     let provider = Address::generate(&env);
+    let consumer = Address::generate(&env);
     register_agent(&env, &client, &provider);
+    register_agent(&env, &client, &consumer);
 
-    let tx_hash = register_interaction_tx(&env, &client, &contract_id, &relayer, &provider, &provider, 100, 32);
+    let tx_hash = register_interaction_tx(&env, &client, &contract_id, &relayer, &provider, &consumer, 100, 32);
     let rating = RatingInput {
         provider_address: provider.clone(),
         consumer_address: provider.clone(),
