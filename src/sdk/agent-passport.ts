@@ -1,3 +1,5 @@
+import { StrKey } from "@stellar/stellar-sdk"
+
 import type {
   Address,
   AgentProfile,
@@ -6,7 +8,9 @@ import type {
   InteractionRecord,
   RatingInput,
   RatingRecord,
-} from "./types"
+  RichRatingInput,
+  RichRatingRecord,
+} from "./types.js"
 
 export const AGENT_PASSPORT_READ_METHODS = [
   "get_config",
@@ -85,6 +89,9 @@ export class AgentPassportClient {
   readonly transport: AgentPassportTransport
 
   constructor(options: AgentPassportClientOptions) {
+    if (!StrKey.isValidContract(options.contractId)) {
+      throw new Error(`Invalid contract ID: ${options.contractId}. Must be a valid Stellar contract address (C...).`)
+    }
     this.contractId = options.contractId
     this.transport = options.transport
   }
@@ -138,5 +145,31 @@ export class AgentPassportClient {
 
   submitRating(rating: RatingInput): Promise<void> {
     return this.writeContract("submit_rating", [rating])
+  }
+
+  getConfig(): Promise<Config> {
+    return this.readContract("get_config", [])
+  }
+
+  submitRichRating(input: RichRatingInput): Promise<RichRatingRecord> {
+    const onChainRating: RatingInput = {
+      provider_address: input.provider_address,
+      consumer_address: input.consumer_address,
+      interaction_tx_hash: input.interaction_tx_hash,
+      score: input.score,
+    }
+
+    return this.writeContract("submit_rating", [onChainRating]).then(() => ({
+      provider_address: input.provider_address,
+      consumer_address: input.consumer_address,
+      interaction_tx_hash: input.interaction_tx_hash,
+      score: input.score,
+      quality: input.quality ?? null,
+      speed: input.speed ?? null,
+      reliability: input.reliability ?? null,
+      communication: input.communication ?? null,
+      comment: input.comment ?? null,
+      submitted_at: new Date().toISOString(),
+    }))
   }
 }

@@ -21,6 +21,90 @@ import {
 import type { AgentProfile, InteractionRecord } from "../../../src/sdk/types";
 import type { AgentDashboardDetail, AgentLeaderboardEntry } from "../types";
 
+type ApiAgentResponse = {
+  owner_address: string
+  name: string
+  description: string
+  tags: string[]
+  score: number
+  verified_interactions_count: number
+  total_economic_volume: string
+  unique_counterparties_count: number
+  last_interaction_timestamp: number | null
+  created_at: number
+  service_url: string | null
+  mcp_server_url: string | null
+  payment_endpoint: string | null
+}
+
+type ApiInteractionResponse = {
+  provider_address: string
+  consumer_address: string
+  tx_hash: string
+  amount: string
+  timestamp: number
+  service_label: string | null
+}
+
+type ApiRatingResponse = {
+  provider_address: string
+  consumer_address: string
+  interaction_tx_hash: string
+  score: number
+  timestamp: number
+}
+
+type ApiPaginatedResponse<T> = {
+  data: T[]
+  total: number
+  has_more: boolean
+}
+
+const API_BASE = process.env.API_URL ?? "http://localhost:3002"
+
+async function fetchFromApi<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`)
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+function apiAgentToLeaderboardEntry(a: ApiAgentResponse): AgentLeaderboardEntry {
+  return {
+    ownerAddress: a.owner_address,
+    name: a.name,
+    description: normalizeOptionalString(a.description),
+    score: a.score,
+    verifiedInteractionsCount: a.verified_interactions_count,
+    totalEconomicVolume: a.total_economic_volume,
+  }
+}
+
+function apiAgentToDashboardDetail(a: ApiAgentResponse, recentInteractions: (ApiInteractionResponse & { ratingScore: number | null })[]): AgentDashboardDetail {
+  return {
+    agent: {
+      ...apiAgentToLeaderboardEntry(a),
+      tags: a.tags,
+      serviceUrl: normalizeOptionalString(a.service_url),
+      mcpServerUrl: normalizeOptionalString(a.mcp_server_url),
+      paymentEndpoint: normalizeOptionalString(a.payment_endpoint),
+      uniqueCounterpartiesCount: a.unique_counterparties_count,
+      lastInteractionTimestamp: a.last_interaction_timestamp ? formatTimestamp(BigInt(a.last_interaction_timestamp)) : null,
+    },
+    recentInteractions: recentInteractions.map((i) => ({
+      txHash: i.tx_hash,
+      consumerAddress: i.consumer_address,
+      amount: i.amount,
+      asset: "XLM",
+      occurredAt: formatTimestamp(BigInt(i.timestamp)) ?? "Unknown time",
+      ratingScore: i.ratingScore,
+    })),
+  }
+}
+
 type DashboardRuntimeConfig = {
   contractId: string;
   networkPassphrase: string;
@@ -199,6 +283,14 @@ function mapProfileToLeaderboardEntry(profile: AgentProfile): AgentLeaderboardEn
 }
 
 export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> {
+  try {
+    const response = await fetchFromApi<ApiPaginatedResponse<ApiAgentResponse>>("/agents?limit=100&sort=score&order=desc")
+    if (response?.data) {
+      return response.data.map(apiAgentToLeaderboardEntry)
+    }
+  } catch {
+  }
+
   const client = createAgentPassportClient();
   const profiles = await client.listAgents();
 
@@ -226,6 +318,35 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
 export async function getAgentDetail(
   ownerAddress: string
 ): Promise<AgentDashboardDetail | null> {
+  try {
+    const agentResponse = await fetchFromApi<ApiAgentResponse>(`/agents/${ownerAddress}`)
+    if (agentResponse) {
+      const [interactionsResponse, ratingsResponse] = await Promise.all([
+        fetchFromApi<ApiPaginatedResponse<ApiInteractionResponse>>(
+          `/agents/${ownerAddress}/interactions?limit=${MAX_RECENT_INTERACTIONS}`
+        ),
+        fetchFromApi<ApiPaginatedResponse<ApiRatingResponse>>(
+          `/agents/${ownerAddress}/ratings?limit=100`
+        ),
+      ])
+
+      const interactionsList = interactionsResponse?.data ?? []
+      const ratingsList = ratingsResponse?.data ?? []
+      const ratingsByTxHash = new Map<string, number>()
+      for (const r of ratingsList) {
+        ratingsByTxHash.set(r.interaction_tx_hash, r.score)
+      }
+
+      const recentInteractions = interactionsList.slice(0, MAX_RECENT_INTERACTIONS).map((i) => ({
+        ...i,
+        ratingScore: ratingsByTxHash.get(i.tx_hash) ?? null,
+      }))
+
+      return apiAgentToDashboardDetail(agentResponse, recentInteractions)
+    }
+  } catch {
+  }
+
   const client = createAgentPassportClient();
 
   let profile: AgentProfile;

@@ -8,10 +8,19 @@
     "provider": "tsx src/provider/server.ts",
     "dashboard": "npm --prefix web run dev",
     "cli": "tsx src/cli/index.ts",
-    "demo": "tsx scripts/demo-e2e.ts"
+    "build:sdk": "tsc -p src/sdk/tsconfig.build.json",
+    "demo": "tsx scripts/demo-e2e.ts",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "indexer": "tsx scripts/run-indexer.ts",
+    "api": "tsx scripts/run-api.ts",
+    "sync": "tsx -e \"import { applyEnvFile } from './src/lib/env.js'; applyEnvFile(); import { syncHistorical } from './src/indexer/sync.js'; syncHistorical({ contractId: process.env.CONTRACT_ID, rpcUrl: process.env.STELLAR_RPC_URL }).catch(e => { console.error(e); process.exit(1); })\""
   },
   "devDependencies": {
-    "tsx": "^4.20.4"
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.20.4",
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.13",
@@ -20,6 +29,8 @@
     "@x402/core": "^2.9.0",
     "@x402/express": "^2.9.0",
     "@x402/stellar": "^2.9.0",
+    "better-sqlite3": "^12.9.0",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "hono": "^4.12.12"
   }

@@ -1,19 +1,54 @@
 declare const process: {
   argv: string[]
+  cwd(): string
+  env: Record<string, string | undefined>
   exitCode?: number
-  stdout: {
-    write(chunk: string): boolean
-  }
-  stderr: {
-    write(chunk: string): boolean
-  }
+  stdout: { write(chunk: string): boolean }
+  stderr: { write(chunk: string): boolean }
 }
+
+import { applyEnvFile } from "../lib/env.js"
+import { Buffer } from "node:buffer"
 
 import { StrKey } from "@stellar/stellar-sdk"
 
-import type { AgentProfileInput, Address, RatingInput } from "../sdk/types"
+import {
+  AgentPassportClient,
+  SorobanRpcTransport,
+} from "../sdk/index.js"
+import type {
+  Address,
+  AgentProfileInput,
+  RatingInput,
+  RichRatingRecord,
+} from "../sdk/types.js"
+import { loadRichRatingStore } from "./rich-ratings.js"
+
+function readRequiredEnv(key: string): string {
+  const value = process.env[key]
+  if (value === undefined) {
+    throw new Error(`Missing required environment variable: ${key}`)
+  }
+  const normalized = value.trim()
+  if (normalized.length === 0) {
+    throw new Error(`Environment variable ${key} must not be blank`)
+  }
+  return normalized
+}
+
+function createSdkClient(): AgentPassportClient {
+  return new AgentPassportClient({
+    contractId: readRequiredEnv("CONTRACT_ID"),
+    transport: new SorobanRpcTransport({
+      rpcUrl: readRequiredEnv("STELLAR_RPC_URL"),
+      networkPassphrase: readRequiredEnv("STELLAR_NETWORK_PASSPHRASE"),
+      signerSecretKey: readRequiredEnv("AGENT_SECRET_KEY"),
+    }),
+  })
+}
 
 export const AGENT_PASSPORT_CLI_COMMANDS = [
+  "trust_check",
   "agent_register",
   "agent_query",
   "agent_list",
@@ -42,10 +77,6 @@ interface PreparedAgentList {
   limit: null
 }
 
-interface PreparedAgentRating {
-  rating: RatingInput
-}
-
 interface PreparedAgentInteractions {
   providerAddress: Address
 }
@@ -67,6 +98,11 @@ const AGENT_RATE_OPTION_NAMES = [
   "consumer-address",
   "interaction-tx-hash",
   "score",
+  "quality",
+  "speed",
+  "reliability",
+  "communication",
+  "comment",
 ] as const
 
 function isAgentPassportCliCommand(
@@ -110,7 +146,14 @@ function buildAgentListUsage(): string {
 
 function buildAgentRateUsage(): string {
   return [
-    "Usage: npm run cli -- agent_rate --provider-address <G...> --consumer-address <G...> --interaction-tx-hash <64-hex> --score <0-100>",
+    "Usage: npm run cli -- agent_rate --provider-address <G...> --consumer-address <G...> --interaction-tx-hash <64-hex> --score <0-100> [options]",
+    "",
+    "Options:",
+    "  --quality <1-5>       Quality dimension (optional)",
+    "  --speed <1-5>         Speed dimension (optional)",
+    "  --reliability <1-5>   Reliability dimension (optional)",
+    "  --communication <1-5> Communication dimension (optional)",
+    "  --comment <text>      Optional comment",
   ].join("\n")
 }
 
@@ -282,6 +325,22 @@ function parseScoreOption(options: Record<string, string>): number {
   return score
 }
 
+function parseOptionalScore(
+  options: Record<string, string>,
+  optionName: string,
+): number | undefined {
+  const raw = options[optionName]
+  if (raw === undefined) return undefined
+  if (!/^[0-9]+$/.test(raw)) {
+    throw new Error(`Invalid ${optionName}: expected an integer, got ${raw}`)
+  }
+  const value = Number.parseInt(raw, 10)
+  if (value < 1 || value > 5) {
+    throw new Error(`Invalid ${optionName}: expected 1-5, got ${value}`)
+  }
+  return value
+}
+
 function prepareAgentRegistration(args: string[]): PreparedAgentRegistration {
   if (args[0] === "help" || args[0] === "--help") {
     throw new Error(buildAgentRegisterUsage())
@@ -343,23 +402,6 @@ function prepareAgentList(args: string[]): PreparedAgentList {
   }
 }
 
-function prepareAgentRating(args: string[]): PreparedAgentRating {
-  if (args[0] === "help" || args[0] === "--help") {
-    throw new Error(buildAgentRateUsage())
-  }
-
-  const options = parseCommandOptions(args, "agent_rate", AGENT_RATE_OPTION_NAMES)
-
-  return {
-    rating: {
-      provider_address: parseStellarAddressOption(options, "provider-address"),
-      consumer_address: parseStellarAddressOption(options, "consumer-address"),
-      interaction_tx_hash: parseInteractionTxHashOption(options),
-      score: parseScoreOption(options),
-    },
-  }
-}
-
 function prepareAgentInteractions(args: string[]): PreparedAgentInteractions {
   if (args[0] === "help" || args[0] === "--help") {
     throw new Error(buildAgentInteractionsUsage())
@@ -379,24 +421,31 @@ function prepareAgentInteractions(args: string[]): PreparedAgentInteractions {
 function runAgentRegisterCommand(args: string[]): number {
   try {
     const registration = prepareAgentRegistration(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_register",
-          mode: "prepared",
-          ownerAddress: registration.ownerAddress,
-          input: registration.input,
-        },
-        null,
-        2,
-      ),
-    )
+    const client = createSdkClient()
+    const input: AgentProfileInput = {
+      name: registration.input.name,
+      description: registration.input.description,
+      tags: registration.input.tags,
+      service_url: registration.input.service_url,
+      mcp_server_url: registration.input.mcp_server_url,
+      payment_endpoint: registration.input.payment_endpoint,
+    }
+    writeStdoutLine(`Registering agent "${input.name}"...`)
+    writeStdoutLine(`  Owner: ${registration.ownerAddress}`)
+    writeStdoutLine(`  Tags: ${input.tags.join(", ") || "(none)"}`)
+    client
+      .registerAgent(registration.ownerAddress, input)
+      .then(() => {
+        writeStdoutLine("Registration submitted successfully.")
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`Registration failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentRegisterUsage()) {
       writeStderrLine("")
@@ -409,23 +458,25 @@ function runAgentRegisterCommand(args: string[]): number {
 function runAgentQueryCommand(args: string[]): number {
   try {
     const query = prepareAgentQuery(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_query",
-          mode: "prepared",
-          ownerAddress: query.ownerAddress,
-        },
-        null,
-        2,
-      ),
-    )
+    const client = createSdkClient()
+    writeStdoutLine(`Querying agent ${query.ownerAddress}...`)
+    client
+      .getAgent(query.ownerAddress)
+      .then((profile) => {
+        writeStdoutLine(formatAgentProfile(profile))
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.includes("get_agent")) {
+          writeStdoutLine(`Agent ${query.ownerAddress} not found.`)
+        } else {
+          writeStderrLine(`Query failed: ${message}`)
+          process.exitCode = 1
+        }
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentQueryUsage()) {
       writeStderrLine("")
@@ -437,24 +488,34 @@ function runAgentQueryCommand(args: string[]): number {
 
 function runAgentListCommand(args: string[]): number {
   try {
-    const list = prepareAgentList(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_list",
-          mode: "prepared",
-          limit: list.limit,
-        },
-        null,
-        2,
-      ),
-    )
+    prepareAgentList(args)
+    const client = createSdkClient()
+    writeStdoutLine("Listing registered agents...")
+    client
+      .listAgents()
+      .then((profiles) => {
+        if (profiles.length === 0) {
+          writeStdoutLine("No agents registered.")
+          return
+        }
+        writeStdoutLine(`Found ${profiles.length} agent(s):\n`)
+        profiles.forEach((profile, index) => {
+          writeStdoutLine(`  ${index + 1}. ${profile.name} (${profile.owner_address})`)
+          writeStdoutLine(`     Score: ${profile.score} | Interactions: ${profile.verified_interactions_count}`)
+          if (profile.description) {
+            writeStdoutLine(`     ${profile.description}`)
+          }
+          writeStdoutLine("")
+        })
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`List failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentListUsage()) {
       writeStderrLine("")
@@ -466,24 +527,62 @@ function runAgentListCommand(args: string[]): number {
 
 function runAgentRateCommand(args: string[]): number {
   try {
-    const rating = prepareAgentRating(args)
+    const options = parseCommandOptions(args, "agent_rate", AGENT_RATE_OPTION_NAMES)
+    const providerAddress = parseStellarAddressOption(options, "provider-address")
+    const consumerAddress = parseStellarAddressOption(options, "consumer-address")
+    const interactionTxHash = parseInteractionTxHashOption(options)
+    const score = parseScoreOption(options)
+    const quality = parseOptionalScore(options, "quality")
+    const speed = parseOptionalScore(options, "speed")
+    const reliability = parseOptionalScore(options, "reliability")
+    const communication = parseOptionalScore(options, "communication")
+    const comment = readOptionalOption(options, "comment")
 
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_rate",
-          mode: "prepared",
-          rating: rating.rating,
-        },
-        null,
-        2,
-      ),
-    )
+    const hasDimensions = quality !== undefined || speed !== undefined || reliability !== undefined || communication !== undefined || comment !== null
+
+    const client = createSdkClient()
+    const store = loadRichRatingStore()
+
+    writeStdoutLine(`Submitting rating of ${score} for interaction ${interactionTxHash}...`)
+    if (hasDimensions) {
+      writeStdoutLine(`  Dimensions: quality=${quality ?? "-"} speed=${speed ?? "-"} reliability=${reliability ?? "-"} communication=${communication ?? "-"}`)
+    }
+
+    const ratingInput: RatingInput = {
+      provider_address: providerAddress,
+      consumer_address: consumerAddress,
+      interaction_tx_hash: interactionTxHash,
+      score,
+    }
+
+    client
+      .submitRating(ratingInput)
+      .then(() => {
+        writeStdoutLine("On-chain rating submitted successfully.")
+        if (hasDimensions) {
+          store.submit({
+            provider_address: providerAddress,
+            consumer_address: consumerAddress,
+            interaction_tx_hash: interactionTxHash,
+            score,
+            quality: quality ?? null,
+            speed: speed ?? null,
+            reliability: reliability ?? null,
+            communication: communication ?? null,
+            comment: comment ?? null,
+            submitted_at: new Date().toISOString(),
+          })
+          writeStdoutLine("Rich rating dimensions stored locally.")
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`Rating submission failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentRateUsage()) {
       writeStderrLine("")
@@ -495,24 +594,32 @@ function runAgentRateCommand(args: string[]): number {
 
 function runAgentInteractionsCommand(args: string[]): number {
   try {
-    const interactions = prepareAgentInteractions(args)
-
-    writeStdoutLine(
-      JSON.stringify(
-        {
-          ok: true,
-          command: "agent_interactions",
-          mode: "prepared",
-          providerAddress: interactions.providerAddress,
-        },
-        null,
-        2,
-      ),
-    )
+    const { providerAddress } = prepareAgentInteractions(args)
+    const client = createSdkClient()
+    writeStdoutLine(`Querying interactions for ${providerAddress}...`)
+    client
+      .listAgentInteractions(providerAddress)
+      .then((interactions) => {
+        if (interactions.length === 0) {
+          writeStdoutLine("No interactions found.")
+          return
+        }
+        writeStdoutLine(`Found ${interactions.length} interaction(s):\n`)
+        interactions.forEach((interaction, index) => {
+          writeStdoutLine(`  ${index + 1}. tx=${interaction.tx_hash}`)
+          writeStdoutLine(`     Consumer: ${interaction.consumer_address}`)
+          writeStdoutLine(`     Amount: ${interaction.amount} | Timestamp: ${interaction.timestamp}`)
+          writeStdoutLine("")
+        })
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        writeStderrLine(`Query failed: ${message}`)
+        process.exitCode = 1
+      })
     return 0
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-
     writeStderrLine(message)
     if (message !== buildAgentInteractionsUsage()) {
       writeStderrLine("")
@@ -522,7 +629,87 @@ function runAgentInteractionsCommand(args: string[]): number {
   }
 }
 
+function formatAgentProfile(profile: {
+  name: string
+  description: string | null
+  owner_address: string
+  score: number
+  verified_interactions_count: bigint
+  total_economic_volume: bigint
+  unique_counterparties_count: bigint
+  tags: string[]
+  service_url: string | null
+  mcp_server_url: string | null
+  payment_endpoint: string | null
+}): string {
+  return [
+    `Name: ${profile.name}`,
+    `Address: ${profile.owner_address}`,
+    `Score: ${profile.score}`,
+    `Interactions: ${profile.verified_interactions_count}`,
+    `Volume: ${profile.total_economic_volume} stroops`,
+    `Counterparties: ${profile.unique_counterparties_count}`,
+    profile.tags.length > 0 ? `Tags: ${profile.tags.join(", ")}` : null,
+    profile.description ? `Description: ${profile.description}` : null,
+    profile.service_url ? `Service URL: ${profile.service_url}` : null,
+    profile.mcp_server_url ? `MCP URL: ${profile.mcp_server_url}` : null,
+    profile.payment_endpoint ? `Payment: ${profile.payment_endpoint}` : null,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n")
+}
+
+function runTrustCheckCommand(args: string[]): number {
+  if (args.length === 0 || args[0] === "help" || args[0] === "--help") {
+    writeStdoutLine("Usage: npm run cli -- trust_check <G...>\n\nQuick trust profile lookup for any Stellar address.")
+    return 0
+  }
+
+  const address = args[0]
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    writeStderrLine(`Invalid Stellar address: ${address}`)
+    return 1
+  }
+
+  const client = createSdkClient()
+  client
+    .getAgent(address)
+    .then((profile) => {
+      writeStdoutLine(`Trust Profile: ${profile.name}\n`)
+      writeStdoutLine(formatAgentProfile(profile))
+      const store = loadRichRatingStore()
+      const richRatings = store.getByProvider(address)
+      if (richRatings.length > 0) {
+        writeStdoutLine("\nRich Rating Dimensions (off-chain):")
+        const avg = (
+          field: keyof Pick<RichRatingRecord, "quality" | "speed" | "reliability" | "communication">,
+        ) => {
+          const values = richRatings
+            .map((r) => r[field])
+            .filter((v): v is number => v !== null)
+          if (values.length === 0) return null
+          return (values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1)
+        }
+        writeStdoutLine(`  Quality: ${avg("quality") ?? "N/A"} (${richRatings.length} ratings)`)
+        writeStdoutLine(`  Speed: ${avg("speed") ?? "N/A"}`)
+        writeStdoutLine(`  Reliability: ${avg("reliability") ?? "N/A"}`)
+        writeStdoutLine(`  Communication: ${avg("communication") ?? "N/A"}`)
+      }
+    })
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes("get_agent")) {
+        writeStdoutLine(`No trust profile found for ${address}.`)
+      } else {
+        writeStderrLine(`Trust check failed: ${message}`)
+        process.exitCode = 1
+      }
+    })
+  return 0
+}
+
 export function runCli(argv: string[]): number {
+  applyEnvFile()
   const command = argv[0]
 
   if (command === undefined || command === "help" || command === "--help") {
@@ -535,6 +722,10 @@ export function runCli(argv: string[]): number {
     writeStderrLine("")
     writeStderrLine(buildUsage())
     return 1
+  }
+
+  if (command === "trust_check") {
+    return runTrustCheckCommand(argv.slice(1))
   }
 
   if (command === "agent_register") {

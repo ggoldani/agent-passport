@@ -78,12 +78,18 @@ And this is the non-negotiable rule behind the system:
 
 > **Ratings are not free-form reviews. They are unlocked only by verified paid interactions.**
 
-## Why this is different from a review site
+## Payment-Gated Reputation
 
-- no free-form anonymous reviews
-- no ratings without a verified payment-backed interaction
-- trust is tied to economic history, not social signaling alone
-- the same trust profile is useful both before payment decisions and after service delivery
+The core idea: **if reputation is free, reputation is meaningless.**
+
+AgentPassport enforces a simple rule — ratings exist only after a verified x402 payment. No free reviews. No self-promotion. No social gaming.
+
+| | Free Reputation | Payment-Gated Reputation |
+|---|---|---|
+| Rating source | Any interaction | Verified x402 payment |
+| Gaming risk | Sybil attacks, fake reviews | Economically costly to fake |
+| Verification | Manual, optional | Automatic, post-settlement |
+| Trust signal | Social feedback | Economic history |
 
 ## Scope of the MVP
 
@@ -110,36 +116,46 @@ And this is the non-negotiable rule behind the system:
 
 ```text
 agent-passport/
-├── contracts/
-├── scripts/
+├── contracts/          # Soroban smart contract (read-only)
+├── scripts/            # Provider, worker, indexer, API entry points
 ├── src/
-├── web/
+│   ├── sdk/            # AgentPassportClient + transports
+│   ├── indexer/        # Drizzle ORM indexer (events, handlers, sync)
+│   ├── api/            # REST API (Hono routes, middleware)
+│   ├── cli/            # CLI commands
+│   ├── provider/       # StellarIntel x402 provider
+│   └── lib/            # Shared utilities (env loader)
+├── web/                # Next.js dashboard
+├── docs/               # Roadmap, plans, references
 └── README.md
 ```
 
 ## What's implemented now
 
-- Soroban contract for agent registration, verified interactions, relayer-gated writes, and post-interaction ratings
-- worker that verifies Horizon data and submits interaction registration on-chain
+### Phase 1: Core Loop Completion (DONE)
+- SDK with barrel export, built-in SorobanRpcTransport, rich rating types, TrustApiTransport
+- CLI with 6 commands: `agent_register`, `agent_query`, `agent_list`, `agent_rate`, `agent_interactions`, `trust_check`
+- Self-serve provider registration via CLI
+- Enhanced ratings with structured dimensions (quality, speed, reliability, communication)
 - Hono/x402 provider (**StellarIntel**) with one paid `POST /analyze-account` route
-- local CLI with the canonical command surface:
-  - `agent_register`
-  - `agent_query`
-  - `agent_list`
-  - `agent_rate`
-  - `agent_interactions`
 - Next.js dashboard with live leaderboard and live agent detail pages
-- demo script that exercises the full trust loop on Stellar testnet
+- Demo script that exercises the full trust loop on Stellar testnet
 
-CLI note:
-- the current CLI is intentionally in `prepared` mode for the MVP
-- it validates and normalizes the canonical command surface, but the live execution path demonstrated in the hackathon flow is `npm run demo`
+### Phase 2: Query Infrastructure (DONE)
+- Drizzle ORM + SQLite event indexer with XDR decoding
+- Historical sync and long-running poll mode
+- Public REST API (Hono) with agents, interactions, ratings, search, health endpoints
+- Token-bucket rate limiting (300/min global, 60/min search)
+- SDK TrustApiTransport for instant reads via API
+- Dashboard migrated to API-first with RPC fallback, N+1 eliminated
 
-This is not a mock architecture. The MVP has already been exercised end-to-end on Stellar testnet with:
-- real x402 payment flow
-- real on-chain interaction registration
-- real post-interaction rating
-- live dashboard reads from the deployed contract
+### What was verified
+- `tsc --noEmit` zero errors
+- Holistic code review passed (all fixes applied)
+- Security review passed (safe for testnet)
+- Web3 security review passed (medium risk for mainnet — known architectural items for future phases)
+- All CLI commands verified on Stellar testnet
+- `npm run demo` end-to-end passes
 
 Demo contract on Stellar testnet:
 - `CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F`
@@ -172,6 +188,30 @@ npm run demo
 ```
 
 Press `Ctrl+C` to stop all services.
+
+### Using the SDK
+
+```bash
+npm install agent-passport-sdk
+```
+
+Query any agent's trust profile in a few lines:
+
+```typescript
+import { AgentPassportClient } from "agent-passport-sdk"
+
+const client = new AgentPassportClient({
+  contractId: "CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F",
+  transport: myTransport,
+})
+
+const profile = await client.getAgent("G...")
+console.log(`Score: ${profile.score}`)
+console.log(`Verified interactions: ${profile.verified_interactions_count}`)
+console.log(`Total volume: ${profile.total_economic_volume}`)
+```
+
+For full setup with dashboard and demo, use the commands below.
 
 ### Manual setup
 
@@ -265,21 +305,36 @@ The tracked source of truth for the MVP is the implementation itself:
 
 ## Public roadmap
 
-Short version of the next phase:
-- [ ] self-serve provider onboarding around `register_agent`
-- [ ] `update_agent` and full profile management
-- [ ] stronger public provider pages and clearer trust tiers
-- [ ] search, filters, and ranking for provider discovery
-- [ ] trust analytics plus lightweight business analytics for providers
-- [ ] read-first trust API for integrators and ecosystem apps
-- [ ] premium verification and curation layer
-- [ ] broader ecosystem distribution through registries, directories, and marketplaces
+### Completed
+- [x] SDK as primary entry point (published on npm, standalone usage) — Phase 1
+- [x] Self-serve provider onboarding (wallet-based registration) — Phase 1
+- [x] Real-time indexer for instant trust profile queries — Phase 2
+- [x] Read-only trust API for integrators and ecosystem apps — Phase 2
+- [x] Search, filters, and ranking for provider discovery (basic) — Phase 2
+- [x] SDK supports both RPC and API transports — Phase 2
+
+### Near-term (Phase 3: Discovery & Scoring)
+- [ ] Advanced full-text search (FTS5) and advanced filters
+- [ ] AgentRank scoring (PageRank on interaction graph)
+- [ ] Multi-signal score composition
+- [ ] Recency decay on interaction weight
+- [ ] Dashboard v2 with enriched trust data
+
+### Strategic
+- [ ] Multi-chain reputation — port the payment-gated trust model beyond Stellar to EVM and other chains
+- [ ] Reputation scores as on-chain data feeds — trust scores feed into escrow terms, access control, insurance premiums
+- [ ] Composable trust layer — AgentPassport as the reputation layer for any agent identity system
+- [ ] Premium verification and curation layer
+- [ ] Broader ecosystem distribution through registries, directories, and marketplaces
 
 ## Status
 
-AgentPassport is now a validated MVP that is already runnable end-to-end on Stellar testnet.
+AgentPassport has completed Phase 1 (Core Loop Completion) and Phase 2 (Query Infrastructure).
 
 Current state:
-- contract, worker, provider, CLI, demo script, and dashboard are implemented for the MVP flow
-- the canonical demo has already been exercised against live testnet infrastructure
-- the provider identity used in the demo is now **StellarIntel**, not a relayer bootstrap placeholder
+- SDK with dual transports (Soroban RPC + Trust API)
+- Event indexer with XDR decoding, historical sync, and real-time polling
+- Public REST API with rate limiting
+- Dashboard consuming API with RPC fallback
+- CLI with 6 commands all executing live on testnet
+- Contract, worker, provider, and demo flow all verified on Stellar testnet
