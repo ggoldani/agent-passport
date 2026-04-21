@@ -38,8 +38,8 @@ export class RichRatingStore {
         comment = excluded.comment
     `).run(
       record.interaction_tx_hash.toLowerCase(),
-      record.provider_address,
-      record.consumer_address,
+      record.provider_address.toLowerCase(),
+      record.consumer_address.toLowerCase(),
       record.score,
       record.quality,
       record.speed,

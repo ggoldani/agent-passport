@@ -107,10 +107,14 @@ export class AgentPassportIndexer {
       for (const event of response.events) {
         const name = classifyEvent(event)
         if (!name || !event.inSuccessfulContractCall) continue
-        switch (name) {
-          case "agent_registered": handleAgentRegistered(db, event); break
-          case "interaction_registered": handleInteractionRegistered(db, event); break
-          case "rating_submitted": handleRatingSubmitted(db, event); break
+        try {
+          switch (name) {
+            case "agent_registered": handleAgentRegistered(db, event); break
+            case "interaction_registered": handleInteractionRegistered(db, event); break
+            case "rating_submitted": handleRatingSubmitted(db, event); break
+          }
+        } catch (handlerErr: any) {
+          console.error(`Handler error for ${name} at ledger ${event.ledger}:`, handlerErr?.message ?? handlerErr)
         }
         eventCount++
         if (event.ledger > maxEventLedger) maxEventLedger = event.ledger

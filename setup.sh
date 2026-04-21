@@ -36,14 +36,17 @@ MCP_DIR="${SCRIPT_DIR}/../stellar-mcp"
 MCP_REPO="https://github.com/ggoldani/stellar-mcp.git"
 MCP_PORT=3005
 PROVIDER_PORT=3001
+API_PORT=3002
 DASHBOARD_PORT=3000
 
 MCP_LOG="/tmp/ap-stellar-mcp.log"
 PROVIDER_LOG="/tmp/ap-provider.log"
+API_LOG="/tmp/ap-api.log"
 DASHBOARD_LOG="/tmp/ap-dashboard.log"
 
 MCP_PID=""
 PROVIDER_PID=""
+API_PID=""
 DASHBOARD_PID=""
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
@@ -52,17 +55,18 @@ cleanup() {
     info "Stopping services..."
     # Graceful kill by PID
     [ -n "${DASHBOARD_PID:-}" ]  && kill "$DASHBOARD_PID"  2>/dev/null
+    [ -n "${API_PID:-}" ]       && kill "$API_PID"       2>/dev/null
     [ -n "${PROVIDER_PID:-}" ]   && kill "$PROVIDER_PID"   2>/dev/null
     [ -n "${MCP_PID:-}" ]        && kill "$MCP_PID"        2>/dev/null
     sleep 1
     # Kill anything still on our ports (catches Next.js child workers)
-    for port in $MCP_PORT $PROVIDER_PORT $DASHBOARD_PORT; do
+    for port in $MCP_PORT $PROVIDER_PORT $API_PORT $DASHBOARD_PORT; do
         pids=$(lsof -ti :"$port" 2>/dev/null || true)
         [ -n "$pids" ] && kill $pids 2>/dev/null
     done
     sleep 1
     # Final: force kill any survivors
-    for port in $MCP_PORT $PROVIDER_PORT $DASHBOARD_PORT; do
+    for port in $MCP_PORT $PROVIDER_PORT $API_PORT $DASHBOARD_PORT; do
         pids=$(lsof -ti :"$port" 2>/dev/null || true)
         [ -n "$pids" ] && kill -9 $pids 2>/dev/null
     done
@@ -183,7 +187,7 @@ fi
 step "5/6 Starting services"
 
 # Kill stale processes on our ports
-for port in $MCP_PORT $PROVIDER_PORT $DASHBOARD_PORT; do
+for port in $MCP_PORT $PROVIDER_PORT $API_PORT $DASHBOARD_PORT; do
     stale=$(lsof -ti :"$port" 2>/dev/null || true)
     if [ -n "$stale" ]; then
         warn "Port ${port} is in use — killing stale process(es)"
@@ -204,6 +208,11 @@ MCP_PID=$!
 info "Starting provider on port ${PROVIDER_PORT}..."
 (cd "${SCRIPT_DIR}" && npx tsx src/provider/server.ts > "$PROVIDER_LOG" 2>&1) &
 PROVIDER_PID=$!
+
+# API server
+info "Starting API server on port ${API_PORT}..."
+(cd "${SCRIPT_DIR}" && npx tsx scripts/run-api.ts > "$API_LOG" 2>&1) &
+API_PID=$!
 
 # Dashboard
 info "Starting dashboard on port ${DASHBOARD_PORT}..."
@@ -234,6 +243,16 @@ for i in $(seq 1 15); do
     sleep 1
 done
 
+# API health
+for i in $(seq 1 15); do
+    if curl -sf "http://127.0.0.1:${API_PORT}/" >/dev/null 2>&1; then
+        ok "API server (port ${API_PORT})"
+        break
+    fi
+    [ "$i" -eq 15 ] && { err "API server did not start. Check ${API_LOG}"; }
+    sleep 1
+done
+
 # Dashboard (Next.js takes longer)
 for i in $(seq 1 25); do
     if curl -sf "http://127.0.0.1:${DASHBOARD_PORT}" >/dev/null 2>&1; then
@@ -260,9 +279,13 @@ echo ""
 echo "  Provider trust profile:"
 echo "    http://localhost:${DASHBOARD_PORT}/agents/${DEMO_PROVIDER}"
 echo ""
+echo "  Analytics charts:"
+echo "    http://localhost:${DASHBOARD_PORT}/agents/${DEMO_PROVIDER}/analytics"
+echo ""
 echo "  Services:"
 echo "    stellar-mcp   → http://localhost:${MCP_PORT}"
 echo "    provider      → http://localhost:${PROVIDER_PORT}"
+echo "    api           → http://localhost:${API_PORT}"
 echo "    dashboard     → http://localhost:${DASHBOARD_PORT}"
 echo ""
 echo "  Run the full demo:"
@@ -271,6 +294,7 @@ echo ""
 echo "  Logs:"
 echo "    stellar-mcp  → ${MCP_LOG}"
 echo "    provider     → ${PROVIDER_LOG}"
+echo "    api          → ${API_LOG}"
 echo "    dashboard    → ${DASHBOARD_LOG}"
 echo ""
 echo "  Press ${BOLD}Ctrl+C${NC} to stop all services."

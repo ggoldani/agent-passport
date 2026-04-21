@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory"
 import { eq } from "drizzle-orm"
 import { agents } from "../../indexer/db/schema.js"
+import { isValidStellarAddress } from "../validate.js"
 
 interface Bucket {
   tokens: number
@@ -41,11 +42,14 @@ export function rateLimit(opts: RateLimitConfig) {
       lastCleanup = now
     }
 
-    const ip = c.req.header("x-forwarded-for")?.split(",")[0] ?? c.req.header("x-real-ip") ?? "anonymous"
+    const forwarded = c.req.header("x-forwarded-for")
+    const realIp = c.req.header("x-real-ip")
+    const connIp = c.req.header("x-hono-remote-addr")
+    const ip = connIp ?? realIp ?? (forwarded ? forwarded.split(",")[0]?.trim() ?? "anonymous" : "anonymous")
     const agentAddress = c.req.header("x-agent-address")
 
     let isPriority = false
-    if (agentAddress && opts.db && agentAddress.length >= 8 && agentAddress.length <= 80) {
+    if (agentAddress && opts.db && isValidStellarAddress(agentAddress)) {
       try {
         isPriority = await checkPriorityTier(agentAddress, opts.db, now)
       } catch {

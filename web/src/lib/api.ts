@@ -2,7 +2,6 @@ import { Buffer } from "node:buffer";
 
 import {
   BASE_FEE,
-  Keypair,
   nativeToScVal,
   Operation,
   scValToNative,
@@ -77,9 +76,13 @@ const API_BASE = process.env.API_URL ?? "http://localhost:3002"
 async function fetchFromApi<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${API_BASE}${path}`)
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.error(`[API] ${res.status} ${res.statusText} for ${path}`)
+      return null
+    }
     return res.json()
-  } catch {
+  } catch (err) {
+    console.error(`[API] Fetch failed for ${path}:`, err)
     return null
   }
 }
@@ -199,8 +202,11 @@ function loadDashboardRuntimeConfig(): DashboardRuntimeConfig {
   const rpcUrl = readRequiredServerEnv("STELLAR_RPC_URL");
   const contractId = readRequiredServerEnv("CONTRACT_ID");
   const networkPassphrase = readRequiredServerEnv("STELLAR_NETWORK_PASSPHRASE");
-  const relayerSecretKey = readRequiredServerEnv("RELAYER_SECRET_KEY");
-  const sourceAddress = Keypair.fromSecret(relayerSecretKey).publicKey();
+  const sourceAddress = readRequiredServerEnv("RELAYER_PUBLIC_KEY");
+
+  if (!sourceAddress) {
+    throw new Error("RELAYER_PUBLIC_KEY env var is required");
+  }
 
   return {
     contractId,
@@ -309,28 +315,32 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
   } catch {
   }
 
-  const client = createAgentPassportClient();
-  const profiles = await client.listAgents();
+  try {
+    const client = createAgentPassportClient();
+    const profiles = await client.listAgents();
 
-  return profiles
-    .map(mapProfileToLeaderboardEntry)
-    .sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
-      }
+    return profiles
+      .map(mapProfileToLeaderboardEntry)
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
 
-      if (right.verifiedInteractionsCount !== left.verifiedInteractionsCount) {
-        return right.verifiedInteractionsCount - left.verifiedInteractionsCount;
-      }
+        if (right.verifiedInteractionsCount !== left.verifiedInteractionsCount) {
+          return right.verifiedInteractionsCount - left.verifiedInteractionsCount;
+        }
 
-      const volumeDelta =
-        BigInt(right.totalEconomicVolume) - BigInt(left.totalEconomicVolume);
-      if (volumeDelta !== 0n) {
-        return volumeDelta > 0n ? 1 : -1;
-      }
+        const volumeDelta =
+          BigInt(right.totalEconomicVolume) - BigInt(left.totalEconomicVolume);
+        if (volumeDelta !== 0n) {
+          return volumeDelta > 0n ? 1 : -1;
+        }
 
-      return left.name.localeCompare(right.name);
-    });
+        return left.name.localeCompare(right.name);
+      });
+  } catch {
+    return []
+  }
 }
 
 export async function getAgentDetail(

@@ -115,3 +115,13 @@ export interface AnalyticsResponse {
     avg_rating: number
   }
 }
+
+export interface BadgeStatsResponse {
+  address: string
+  name: string
+  trust_tier: "new" | "active" | "trusted"
+  score: number
+  verified_interactions_count: number
+  total_economic_volume: string
+  total_counterparties: number
+}

@@ -1,6 +1,7 @@
 export interface IndexerConfig {
   contractId: string
   rpcUrl: string
+  networkPassphrase?: string
   dbPath?: string
   pollIntervalMs?: number
 }

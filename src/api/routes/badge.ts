@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { eq } from "drizzle-orm"
 import { agents } from "../../indexer/db/schema.js"
 import { computeTrustTier } from "../types.js"
+import { isValidStellarAddress } from "../validate.js"
 
 type Variables = { db: any }
 
@@ -45,7 +46,7 @@ app.get("/:address{.+}", async (c) => {
   const db = c.get("db")
   const fullPath = c.req.param("address")
   const address = fullPath.replace(/\.svg$/, "")
-  if (!address) return c.json({ error: "Address required" }, 400)
+  if (!address || !isValidStellarAddress(address)) return c.json({ error: "Invalid Stellar address" }, 400)
   const theme = c.req.query("theme") === "dark" ? "dark" : "light"
   const size = SIZES[c.req.query("size") ?? "medium"] ?? SIZES.medium
   const showStats = c.req.query("stats") === "full"
