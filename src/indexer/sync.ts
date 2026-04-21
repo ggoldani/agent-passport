@@ -122,7 +122,11 @@ async function backfillAgentInteractions(
         Operation.invokeContractFunction({
           contract: contractId,
           function: "list_agent_interactions",
-          args: [nativeToScVal(address, { type: "address" })],
+          args: [
+            nativeToScVal(address, { type: "address" }),
+            nativeToScVal(0, { type: "u32" }),
+            nativeToScVal(100, { type: "u32" }),
+          ],
         }),
       )
       .setTimeout(30)

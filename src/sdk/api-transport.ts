@@ -47,8 +47,9 @@ export class TrustApiTransport implements AgentPassportTransport {
         const list = Array.isArray(data?.data) ? data.data : []
         return list.map((i: any) => this.toInteractionRecord(i)) as AgentPassportMethodResult[M]
       }
-      case "get_config": {
-        throw new Error("getConfig() is not available via TrustApiTransport. Use SorobanRpcTransport for admin operations.")
+      case "get_config":
+      case "get_relayers": {
+        throw new Error("getConfig()/getRelayers() is not available via TrustApiTransport. Use SorobanRpcTransport for admin operations.")
       }
       default: {
         const _exhaustive: never = method
