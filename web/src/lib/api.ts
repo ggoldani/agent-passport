@@ -231,16 +231,27 @@ function buildContractArgs<M extends AgentPassportReadMethodName>(
 ): xdr.ScVal[] {
   switch (method) {
     case "get_agent":
-    case "list_agent_interactions":
       return [nativeToScVal(args[0], { type: "address" })];
+    case "list_agent_interactions": {
+      const [addr] = args as AgentPassportMethodArgs["list_agent_interactions"];
+      return [
+        nativeToScVal(addr, { type: "address" }),
+        nativeToScVal(0, { type: "u32" }),
+        nativeToScVal(100, { type: "u32" }),
+      ];
+    }
     case "get_rating": {
       const [interactionTxHash] = args as AgentPassportMethodArgs["get_rating"];
 
       return [xdr.ScVal.scvBytes(Buffer.from(interactionTxHash, "hex"))];
     }
     case "get_config":
-    case "list_agents":
       return [];
+    case "list_agents":
+      return [
+        nativeToScVal(0, { type: "u32" }),
+        nativeToScVal(100, { type: "u32" }),
+      ];
     default: {
       const exhaustiveCheck: never = method;
       throw new Error(`Unsupported dashboard read method: ${String(exhaustiveCheck)}`);
