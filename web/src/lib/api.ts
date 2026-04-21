@@ -246,6 +246,7 @@ function buildContractArgs<M extends AgentPassportReadMethodName>(
       return [xdr.ScVal.scvBytes(Buffer.from(interactionTxHash, "hex"))];
     }
     case "get_config":
+    case "get_relayers":
       return [];
     case "list_agents":
       return [
