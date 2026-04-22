@@ -208,7 +208,7 @@ async function backfillAgent(
           created_at: Number(profile.created_at ?? 0),
           score: Number(profile.score ?? 0),
           verified_interactions_count: Number(profile.verified_interactions_count ?? 0),
-          total_economic_volume: String(Math.floor(Number(profile.total_economic_volume ?? 0))),
+          total_economic_volume: String(BigInt(profile.total_economic_volume ?? 0)),
           unique_counterparties_count: Number(profile.unique_counterparties_count ?? 0),
           last_interaction_timestamp: Number(profile.last_interaction_timestamp ?? 0) || null,
           updated_at: now,
@@ -223,7 +223,7 @@ async function backfillAgent(
             mcp_server_url: profile.mcp_server_url ?? null,
             payment_endpoint: profile.payment_endpoint ?? null,
             verified_interactions_count: Number(profile.verified_interactions_count ?? 0),
-            total_economic_volume: String(Math.floor(Number(profile.total_economic_volume ?? 0))),
+            total_economic_volume: String(BigInt(profile.total_economic_volume ?? 0)),
             unique_counterparties_count: Number(profile.unique_counterparties_count ?? 0),
             last_interaction_timestamp: Number(profile.last_interaction_timestamp ?? 0) || null,
             updated_at: now,
@@ -248,7 +248,7 @@ function recalculateAgentStats(
     const stats = db
       .select({
         interactions: sql<number>`count(*)`,
-        volume: sql<string>`cast(cast(sum(cast(amount as real)) as integer) as text)`,
+        volume: sql<string>`cast(sum(cast(amount as integer)) as text)`,
         counterparties: sql<number>`count(distinct consumer_address)`,
         lastTs: sql<number | null>`max(timestamp)`,
       })

@@ -1,11 +1,13 @@
 import { Hono } from "hono"
 import { eq, desc, asc, sql } from "drizzle-orm"
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import { agents } from "../../indexer/db/schema.js"
+import * as schema from "../../indexer/db/schema.js"
 import { getRawDb } from "../../indexer/db/connection.js"
 import { formatAgent } from "../types.js"
 import type { PaginatedResponse, AgentResponse, CounterpartyResponse } from "../types.js"
 
-type Variables = { db: any }
+type Variables = { db: BetterSQLite3Database<typeof schema> }
 
 function sanitizeFtsQuery(input: string): string {
   let sanitized = input.replace(/["*()]/g, " ").replace(/\s+/g, " ").trim()
@@ -130,9 +132,9 @@ app.get("/", async (c) => {
        LIMIT ?`
     ).all(sanitizedQ!, ...params, limit + 1) as any[]
   } else {
-    let query = db.select().from(agents)
-    if (where) query = query.where(where)
-    rows = await query.orderBy(orderFn(sortColumn)).limit(limit + 1).all()
+    const baseQuery = db.select().from(agents)
+    const filteredQuery = where ? baseQuery.where(where) : baseQuery
+    rows = await filteredQuery.orderBy(orderFn(sortColumn)).limit(limit + 1).all()
   }
 
   const hasMore = rows.length > limit

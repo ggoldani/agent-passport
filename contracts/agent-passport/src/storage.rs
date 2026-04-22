@@ -163,6 +163,12 @@ pub(crate) fn write_provider_rating_count(e: &Env, provider_address: &Address, c
         .set(&StorageKey::ProviderRatingCount(provider_address.clone()), &count);
 }
 
+pub(crate) fn remove_provider_rating_count(e: &Env, provider_address: &Address) {
+    e.storage()
+        .persistent()
+        .remove(&StorageKey::ProviderRatingCount(provider_address.clone()));
+}
+
 pub(crate) fn read_provider_rating_total(e: &Env, provider_address: &Address) -> u64 {
     e.storage()
         .persistent()
@@ -174,6 +180,12 @@ pub(crate) fn write_provider_rating_total(e: &Env, provider_address: &Address, t
     e.storage()
         .persistent()
         .set(&StorageKey::ProviderRatingTotal(provider_address.clone()), &total);
+}
+
+pub(crate) fn remove_provider_rating_total(e: &Env, provider_address: &Address) {
+    e.storage()
+        .persistent()
+        .remove(&StorageKey::ProviderRatingTotal(provider_address.clone()));
 }
 
 pub(crate) fn read_interaction(e: &Env, tx_hash: &BytesN<32>) -> Option<InteractionRecord> {

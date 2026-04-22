@@ -73,6 +73,10 @@ type ApiCounterpartyResponse = {
 
 const API_BASE = process.env.API_URL ?? "http://localhost:3002"
 
+if (typeof window !== "undefined" && API_BASE.startsWith("http://") && !API_BASE.includes("localhost") && !API_BASE.includes("127.0.0.1")) {
+  throw new Error("API_BASE uses HTTP in production. Set NEXT_PUBLIC_API_URL or API_URL to an HTTPS URL.")
+}
+
 async function fetchFromApi<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${API_BASE}${path}`)

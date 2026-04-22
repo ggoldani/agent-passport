@@ -10,9 +10,9 @@ use crate::storage::{
     read_provider_interaction_count, read_provider_interaction_tx_hash,
     read_provider_rating_count, read_provider_rating_total, read_rating,
     read_relayers_count, read_relayer_by_index, remove_profile,
-    remove_profile_owner, remove_relayer_from_storage, write_config,
-    write_interaction, write_profile, write_provider_rating_count,
-    write_provider_rating_total, write_rating,
+    remove_profile_owner, remove_provider_rating_count, remove_provider_rating_total,
+    remove_relayer_from_storage, write_config, write_interaction, write_profile,
+    write_provider_rating_count, write_provider_rating_total, write_rating,
 };
 use crate::types::{
     AgentProfile, AgentProfileInput, Config, InteractionRecord, RatingInput, RatingRecord,
@@ -490,6 +490,8 @@ impl AgentPassport {
 
         remove_profile(&env, &owner_address);
         remove_profile_owner(&env, &owner_address);
+        remove_provider_rating_count(&env, &owner_address);
+        remove_provider_rating_total(&env, &owner_address);
         AgentDeregistered {
             owner_address,
         }

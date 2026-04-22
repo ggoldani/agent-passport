@@ -25,8 +25,8 @@ function formatRelativeTime(timestamp: number | null): string {
 }
 
 function scoreChipClass(score: number): string {
-  if (score >= 75) return "score-chip-high"
-  if (score >= 50) return "score-chip-medium"
+  if (score >= 80) return "score-chip-high"
+  if (score >= 40) return "score-chip-medium"
   return "score-chip-low"
 }
 

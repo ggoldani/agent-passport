@@ -34,7 +34,8 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
       total_economic_volume TEXT NOT NULL DEFAULT '0',
       unique_counterparties_count INTEGER NOT NULL DEFAULT 0,
       last_interaction_timestamp INTEGER,
-      updated_at INTEGER NOT NULL DEFAULT 0
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      trust_tier TEXT DEFAULT 'active'
     );
     CREATE TABLE IF NOT EXISTS interactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,12 +104,6 @@ export function getDatabase(dbPath?: string): ReturnType<typeof drizzle<typeof s
     CREATE INDEX IF NOT EXISTS idx_rich_ratings_provider ON rich_ratings(provider_address);
     CREATE INDEX IF NOT EXISTS idx_rich_ratings_submitted_at ON rich_ratings(submitted_at);
   `)
-
-  const existingColumns = _rawDb.prepare("SELECT name FROM pragma_table_info('agents')").all() as { name: string }[]
-  const columnNames = new Set(existingColumns.map(c => c.name))
-  if (!columnNames.has("trust_tier")) {
-    _rawDb.exec("ALTER TABLE agents ADD COLUMN trust_tier TEXT")
-  }
 
   const richRatingsColumns = _rawDb.prepare("SELECT name FROM pragma_table_info('rich_ratings')").all() as { name: string }[]
   const richRatingsColumnNames = new Set(richRatingsColumns.map(c => c.name))

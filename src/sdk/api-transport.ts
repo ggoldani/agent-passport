@@ -16,7 +16,11 @@ export class TrustApiTransport implements AgentPassportTransport {
   private readonly timeoutMs: number
 
   constructor(config: TrustApiTransportConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, "")
+    const url = config.baseUrl.replace(/\/$/, "")
+    if (!url.startsWith("http://localhost") && !url.startsWith("http://127.0.0.1") && !url.startsWith("https://")) {
+      throw new Error(`TrustApiTransport requires HTTPS for non-local connections: ${url}`)
+    }
+    this.baseUrl = url
     this.timeoutMs = config.timeoutMs ?? 10_000
   }
 
@@ -32,7 +36,8 @@ export class TrustApiTransport implements AgentPassportTransport {
         return this.toAgentProfile(data) as AgentPassportMethodResult[M]
       }
       case "list_agents": {
-        const { data } = await this.fetchJson<{ data: any[] }>(`/agents?limit=100`)
+        const [from, limit] = args as [number, number]
+        const { data } = await this.fetchJson<{ data: any[] }>(`/agents?from=${from}&limit=${limit}`)
         const list = Array.isArray(data?.data) ? data.data : []
         return list.map((a: any) => this.toAgentProfile(a)) as AgentPassportMethodResult[M]
       }
@@ -43,7 +48,8 @@ export class TrustApiTransport implements AgentPassportTransport {
         return this.toRatingRecord(data) as AgentPassportMethodResult[M]
       }
       case "list_agent_interactions": {
-        const { data } = await this.fetchJson<{ data: any[] }>(`/agents/${args[0]}/interactions?limit=100`)
+        const [providerAddress, fromSeq, limit] = args as [string, number, number]
+        const { data } = await this.fetchJson<{ data: any[] }>(`/agents/${providerAddress}/interactions?from=${fromSeq}&limit=${limit}`)
         const list = Array.isArray(data?.data) ? data.data : []
         return list.map((i: any) => this.toInteractionRecord(i)) as AgentPassportMethodResult[M]
       }

@@ -6,6 +6,7 @@ declare const process: {
 import { createServer } from "node:http"
 import { getRequestListener } from "@hono/node-server"
 import { Hono } from "hono"
+import { cors } from "hono/cors"
 
 import { createX402NodeMiddleware } from "./lib/x402"
 import { analyzeAccountRoute } from "./routes/analyze-account"
@@ -13,6 +14,13 @@ import { analyzeAccountRoute } from "./routes/analyze-account"
 const DEFAULT_PROVIDER_PORT = 3001
 
 export const providerApp = new Hono()
+
+if (process.env.PROVIDER_CORS_ORIGINS) {
+  const providerAllowedOrigins = process.env.PROVIDER_CORS_ORIGINS.split(",").map(o => o.trim())
+  providerApp.use("*", cors({ origin: providerAllowedOrigins }))
+} else {
+  providerApp.use("*", cors({ origin: (origin) => origin === undefined ? undefined : null }))
+}
 
 function buildHealthResponse() {
   return {

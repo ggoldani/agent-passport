@@ -7,6 +7,8 @@ import {
   handleAgentRegistered,
   handleInteractionRegistered,
   handleRatingSubmitted,
+  handleProfileUpdated,
+  handleAgentDeregistered,
 } from "./handlers.js"
 import type { IndexerConfig, IndexerStats } from "./types.js"
 
@@ -52,23 +54,35 @@ export class AgentPassportIndexer {
     let processed = 0
     const batchSize = 100
     let lastLedger = startLedger
+    let lastProcessedLedger = startLedger
 
     while (current <= endLedger) {
       const response = await fetchContractEvents(this.server, this.contractId, current, endLedger, batchSize)
+      let batchProcessed = 0
 
-      for (const event of response.events) {
-        const name = classifyEvent(event)
-        if (!name || !event.inSuccessfulContractCall) continue
-        switch (name) {
-          case "agent_registered": handleAgentRegistered(db, event); break
-          case "interaction_registered": handleInteractionRegistered(db, event); break
-          case "rating_submitted": handleRatingSubmitted(db, event); break
+      db.transaction(() => {
+        for (const event of response.events) {
+          const name = classifyEvent(event)
+          if (!name || !event.inSuccessfulContractCall) continue
+          switch (name) {
+            case "agent_registered": handleAgentRegistered(db, event); break
+            case "interaction_registered": handleInteractionRegistered(db, event); break
+            case "rating_submitted": handleRatingSubmitted(db, event); break
+            case "profile_updated": handleProfileUpdated(db, event); break
+            case "agent_deregistered": handleAgentDeregistered(db, event); break
+          }
+          processed++
+          batchProcessed++
+          if (event.ledger > lastProcessedLedger) lastProcessedLedger = event.ledger
         }
-        processed++
-      }
+      })
 
       if (response.latestLedger > lastLedger) {
         lastLedger = response.latestLedger
+      }
+
+      if (batchProcessed > 0) {
+        this.writeWatermark(db, lastProcessedLedger)
       }
 
       console.log(`  Synced ledger ${current}-${response.latestLedger}: ${response.events.length} events (${processed} total)`)
@@ -77,7 +91,9 @@ export class AgentPassportIndexer {
       current = response.latestLedger + 1
     }
 
-    this.writeWatermark(db, lastLedger)
+    if (lastProcessedLedger > startLedger) {
+      this.writeWatermark(db, lastProcessedLedger)
+    }
     return processed
   }
 
@@ -104,21 +120,25 @@ export class AgentPassportIndexer {
       const response = await fetchContractEvents(this.server, this.contractId, watermark + 1)
       let eventCount = 0
       let maxEventLedger = watermark
-      for (const event of response.events) {
-        const name = classifyEvent(event)
-        if (!name || !event.inSuccessfulContractCall) continue
-        try {
-          switch (name) {
-            case "agent_registered": handleAgentRegistered(db, event); break
-            case "interaction_registered": handleInteractionRegistered(db, event); break
-            case "rating_submitted": handleRatingSubmitted(db, event); break
+      db.transaction(() => {
+        for (const event of response.events) {
+          const name = classifyEvent(event)
+          if (!name || !event.inSuccessfulContractCall) continue
+          try {
+            switch (name) {
+              case "agent_registered": handleAgentRegistered(db, event); break
+              case "interaction_registered": handleInteractionRegistered(db, event); break
+              case "rating_submitted": handleRatingSubmitted(db, event); break
+              case "profile_updated": handleProfileUpdated(db, event); break
+              case "agent_deregistered": handleAgentDeregistered(db, event); break
+            }
+          } catch (handlerErr: any) {
+            console.error(`Handler error for ${name} at ledger ${event.ledger}:`, handlerErr?.message ?? handlerErr)
           }
-        } catch (handlerErr: any) {
-          console.error(`Handler error for ${name} at ledger ${event.ledger}:`, handlerErr?.message ?? handlerErr)
+          eventCount++
+          if (event.ledger > maxEventLedger) maxEventLedger = event.ledger
         }
-        eventCount++
-        if (event.ledger > maxEventLedger) maxEventLedger = event.ledger
-      }
+      })
       if (response.latestLedger > watermark) {
         this.writeWatermark(db, Math.max(maxEventLedger, response.latestLedger))
         if (eventCount > 0) {

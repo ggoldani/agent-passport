@@ -105,7 +105,7 @@ export function handleInteractionRegistered(db: Db, event: RawEvent): void {
 
     const currentVolume = BigInt(db.select({ v: agents.total_economic_volume })
       .from(agents).where(eq(agents.owner_address, providerAddress)).get()?.v ?? "0")
-    const newVolume = (currentVolume + BigInt(Math.floor(Number(amount)))).toString()
+    const newVolume = (currentVolume + BigInt(amount)).toString()
     const now = Math.floor(Date.now() / 1000)
 
     db.update(agents)
@@ -124,6 +124,55 @@ export function handleInteractionRegistered(db: Db, event: RawEvent): void {
       .where(eq(agents.owner_address, providerAddress))
       .run()
   })
+}
+
+export function handleProfileUpdated(db: Db, event: RawEvent): void {
+  const ownerAddress = decodeTopicAddress(event.topic[1])
+  if (!ownerAddress) return
+
+  let name = ""
+  let description = ""
+  let tags = "[]"
+  let serviceUrl: string | null = null
+  let mcpServerUrl: string | null = null
+  let paymentEndpoint: string | null = null
+
+  try {
+    const fields = decodeEventValue(event)
+    name = String(fields.name ?? "")
+    description = String(fields.description ?? "")
+    tags = JSON.stringify(Array.isArray(fields.tags) ? fields.tags : [])
+    serviceUrl = fields.service_url != null ? String(fields.service_url) : null
+    mcpServerUrl = fields.mcp_server_url != null ? String(fields.mcp_server_url) : null
+    paymentEndpoint = fields.payment_endpoint != null ? String(fields.payment_endpoint) : null
+  } catch (e) {
+    console.error("Failed to parse ProfileUpdated event value:", e)
+    return
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+
+  db.update(agents)
+    .set({
+      name,
+      description,
+      tags,
+      service_url: serviceUrl,
+      mcp_server_url: mcpServerUrl,
+      payment_endpoint: paymentEndpoint,
+      updated_at: now,
+    })
+    .where(eq(agents.owner_address, ownerAddress))
+    .run()
+}
+
+export function handleAgentDeregistered(db: Db, event: RawEvent): void {
+  const ownerAddress = decodeTopicAddress(event.topic[1])
+  if (!ownerAddress) return
+
+  db.delete(agents)
+    .where(eq(agents.owner_address, ownerAddress))
+    .run()
 }
 
 export function handleRatingSubmitted(db: Db, event: RawEvent): void {

@@ -4,7 +4,7 @@ export type Bytes32 = string
 export interface Config {
   admin: Address
   pending_admin: string | null
-  admin_transfer_at: number
+  admin_transfer_at: bigint
 }
 
 export interface AgentProfile {
