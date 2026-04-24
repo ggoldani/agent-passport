@@ -89,8 +89,9 @@ app.post("/", async (c) => {
   const contractIdBuffer = Buffer.from(new Uint8Array(contractAddress.contractId() as unknown as Uint8Array))
   const parsedContractId = StrKey.encodeContract(contractIdBuffer)
   const functionName = invokeArgs.functionName()
+  const functionNameStr = typeof functionName === "string" ? functionName : functionName.toString("utf-8")
 
-  if (parsedContractId !== CONTRACT_ID || functionName !== "register_agent") {
+  if (parsedContractId !== CONTRACT_ID || functionNameStr !== "register_agent") {
     return c.json({
       error: `Transaction must invoke register_agent on contract ${CONTRACT_ID}`,
     }, 400)
