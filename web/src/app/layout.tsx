@@ -30,16 +30,21 @@ export default function RootLayout({
                 </a>
               </div>
             </div>
-            <p className="topbar-copy">
-              Public reputation records derived from verified paid interactions.
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <p className="topbar-copy" style={{ margin: 0 }}>
+                Public reputation records derived from verified paid interactions.
+              </p>
+              <a className="footer-link" href="/register" style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
+                Register Agent
+              </a>
+            </div>
           </header>
           <main className="page-frame">{children}</main>
           <footer className="footer-bar">
             <a
               className="footer-link"
               href={`https://stellar.expert/explorer/testnet/contract/${DEMO_CONTRACT_ID}`}
-              rel="noreferrer"
+              rel="noreferrer noopener"
               target="_blank"
             >
               Testnet contract
@@ -47,10 +52,16 @@ export default function RootLayout({
             <a
               className="footer-link"
               href={`https://stellar.expert/explorer/testnet/account/${DEMO_PROVIDER_ADDRESS}`}
-              rel="noreferrer"
+              rel="noreferrer noopener"
               target="_blank"
             >
               Demo provider
+            </a>
+            <a
+              className="footer-link"
+              href="/register"
+            >
+              Register agent
             </a>
           </footer>
         </div>

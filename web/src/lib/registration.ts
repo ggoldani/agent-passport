@@ -207,7 +207,7 @@ export function buildBadgeSnippet(publicApiUrl: string, address: string): string
   }
   try {
     const url = new URL(publicApiUrl)
-    if (url.protocol !== "https:" && !url.protocol.startsWith("http")) {
+    if (url.protocol !== "https:") {
       throw new Error(`Invalid API URL protocol: ${publicApiUrl}`)
     }
     if (url.search || url.hash) {
