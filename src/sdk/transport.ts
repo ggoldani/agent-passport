@@ -7,7 +7,7 @@ import {
   scValToNative,
   TransactionBuilder,
 } from "@stellar/stellar-sdk"
-import { Server } from "@stellar/stellar-sdk/rpc"
+import { createRpcServer } from "../lib/rpc.js"
 
 import { buildMethodArgs } from "./scval.js"
 import type {
@@ -43,18 +43,54 @@ function bytesNToHex(value: unknown): unknown {
   return value
 }
 
+function validateResult(method: AgentPassportReadMethodName, value: unknown): void {
+  const kind = value === null ? "null" : Array.isArray(value) ? "array" : typeof value === "object" && value !== null ? "object" : typeof value
+
+  switch (method) {
+    case "get_config":
+      if (kind !== "object" || value === null || typeof (value as Record<string, unknown>).admin !== "string") {
+        throw new TypeError(`RPC validation failed for get_config: expected object with "admin" string, got ${kind === "object" ? JSON.stringify(value) : kind}`)
+      }
+      break
+    case "get_relayers":
+      if (!Array.isArray(value) || value.some((v: unknown) => typeof v !== "string")) {
+        throw new TypeError(`RPC validation failed for get_relayers: expected string[], got ${kind}`)
+      }
+      break
+    case "get_agent":
+      if (kind !== "object" || value === null || typeof (value as Record<string, unknown>).owner_address !== "string" || typeof (value as Record<string, unknown>).score !== "number") {
+        throw new TypeError(`RPC validation failed for get_agent: expected AgentProfile with "owner_address" and "score", got ${kind === "object" ? JSON.stringify(value) : kind}`)
+      }
+      break
+    case "list_agents":
+      if (!Array.isArray(value)) {
+        throw new TypeError(`RPC validation failed for list_agents: expected AgentProfile[], got ${kind}`)
+      }
+      for (let i = 0; i < value.length; i++) {
+        const item = value[i]
+        if (typeof item !== "object" || item === null || typeof (item as Record<string, unknown>).owner_address !== "string") {
+          throw new TypeError(`RPC validation failed for list_agents[${i}]: expected AgentProfile with "owner_address", got ${typeof item === "object" ? JSON.stringify(item) : typeof item}`)
+        }
+      }
+      break
+    case "get_rating":
+      if (value !== null) {
+        if (kind !== "object" || value === null || typeof (value as Record<string, unknown>).provider_address !== "string" || typeof (value as Record<string, unknown>).score !== "number") {
+          throw new TypeError(`RPC validation failed for get_rating: expected RatingRecord or null, got ${kind === "object" ? JSON.stringify(value) : kind}`)
+        }
+      }
+      break
+  }
+}
+
 export class SorobanRpcTransport implements AgentPassportTransport {
-  private readonly server: Server
+  private readonly server: ReturnType<typeof createRpcServer>
   private readonly networkPassphrase: string
   private readonly signer: Keypair
   private readonly timeoutSeconds: number
 
   constructor(config: SorobanRpcTransportConfig) {
-    const isLocal = config.rpcUrl.startsWith("http://localhost") || config.rpcUrl.startsWith("http://127.0.0.1")
-    if (!config.rpcUrl.startsWith("https://") && !isLocal) {
-      throw new Error(`RPC URL must use HTTPS (got ${config.rpcUrl}). Unencrypted connections are not supported.`)
-    }
-    this.server = new Server(config.rpcUrl, { allowHttp: isLocal })
+    this.server = createRpcServer(config.rpcUrl)
     this.networkPassphrase = config.networkPassphrase
     this.signer = Keypair.fromSecret(config.signerSecretKey)
     this.timeoutSeconds = config.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS
@@ -93,9 +129,9 @@ export class SorobanRpcTransport implements AgentPassportTransport {
       throw new Error(`Simulation failed for ${method}: no result returned`)
     }
 
-    return bytesNToHex(scValToNative(
-      simulation.result.retval,
-    )) as AgentPassportMethodResult[M]
+    const rawResult = scValToNative(simulation.result.retval)
+    validateResult(method, rawResult)
+    return bytesNToHex(rawResult) as AgentPassportMethodResult[M]
   }
 
   async write<M extends AgentPassportWriteMethodName>(

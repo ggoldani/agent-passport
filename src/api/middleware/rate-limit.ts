@@ -1,7 +1,10 @@
 import { createMiddleware } from "hono/factory"
 import { eq } from "drizzle-orm"
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import { agents } from "../../indexer/db/schema.js"
+import type * as schema from "../../indexer/db/schema.js"
 import { isValidStellarAddress } from "../validate.js"
+import { computeTrustTier } from "../types.js"
 
 interface Bucket {
   tokens: number
@@ -25,7 +28,7 @@ const PRIORITY_MULTIPLIER = 2
 export type RateLimitConfig = {
   windowMs: number
   max: number
-  db?: any
+  db?: BetterSQLite3Database<typeof schema>
 }
 
 export function rateLimit(opts: RateLimitConfig) {
@@ -85,7 +88,7 @@ export function rateLimit(opts: RateLimitConfig) {
   })
 }
 
-async function checkPriorityTier(address: string, db: any, now: number): Promise<boolean> {
+async function checkPriorityTier(address: string, db: BetterSQLite3Database<typeof schema>, now: number): Promise<boolean> {
   const cached = tierCache.get(address)
   if (cached && now - cached.fetchedAt < TIER_CACHE_TTL_MS) {
     return cached.tier === "trusted"
@@ -95,12 +98,10 @@ async function checkPriorityTier(address: string, db: any, now: number): Promise
     verified_interactions_count: agents.verified_interactions_count,
     score: agents.score,
     unique_counterparties_count: agents.unique_counterparties_count,
-  }).where(eq(agents.owner_address, address)).get()
+  }).from(agents).where(eq(agents.owner_address, address)).get()
 
   const isTrusted = row !== undefined
-    && Number(row.verified_interactions_count) >= 20
-    && row.score >= 75
-    && Number(row.unique_counterparties_count) >= 5
+    && computeTrustTier(Number(row.verified_interactions_count), row.score, Number(row.unique_counterparties_count)) === "trusted"
 
   tierCache.set(address, { tier: isTrusted ? "trusted" : "standard", fetchedAt: now })
   return isTrusted

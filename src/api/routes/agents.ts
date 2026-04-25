@@ -9,11 +9,68 @@ import type { PaginatedResponse, AgentResponse, CounterpartyResponse } from "../
 
 type Variables = { db: BetterSQLite3Database<typeof schema> }
 
+interface FilterParams {
+  tags: string[] | undefined
+  minScore: number
+  maxScore: number
+  minInteractions: number
+  maxInteractions: number
+  minVolume: string | undefined
+  maxVolume: string | undefined
+  registeredBefore: number
+  registeredAfter: number
+  hasServiceUrl: string | undefined
+}
+
 function sanitizeFtsQuery(input: string): string {
   let sanitized = input.replace(/["*()]/g, " ").replace(/\s+/g, " ").trim()
   const tokens = sanitized.split(" ").filter(t => t.length > 0)
   if (tokens.length === 0) return ""
   return tokens.map(t => `"${t}"`).join(" ")
+}
+
+function buildDrizzleConditions(fp: FilterParams): any[] {
+  const conditions: any[] = []
+  if (fp.tags && fp.tags.length > 0) {
+    for (const tag of fp.tags) {
+      conditions.push(sql`EXISTS (SELECT 1 FROM json_each(agents.tags) WHERE json_each.value = ${tag})`)
+    }
+  }
+  if (fp.minScore > 0) conditions.push(sql`${agents.score} >= ${fp.minScore}`)
+  if (fp.maxScore < 100) conditions.push(sql`${agents.score} <= ${fp.maxScore}`)
+  if (fp.minInteractions > 0) conditions.push(sql`${agents.verified_interactions_count} >= ${fp.minInteractions}`)
+  if (fp.maxInteractions < Number.MAX_SAFE_INTEGER) conditions.push(sql`${agents.verified_interactions_count} <= ${fp.maxInteractions}`)
+  if (fp.minVolume) conditions.push(sql`CAST(${agents.total_economic_volume} AS REAL) >= CAST(${fp.minVolume} AS REAL)`)
+  if (fp.maxVolume) conditions.push(sql`CAST(${agents.total_economic_volume} AS REAL) <= CAST(${fp.maxVolume} AS REAL)`)
+  if (fp.registeredBefore > 0) conditions.push(sql`${agents.created_at} <= ${fp.registeredBefore}`)
+  if (fp.registeredAfter > 0) conditions.push(sql`${agents.created_at} >= ${fp.registeredAfter}`)
+  if (fp.hasServiceUrl === "true" || fp.hasServiceUrl === "1" || fp.hasServiceUrl === "") {
+    conditions.push(sql`${agents.service_url} IS NOT NULL`)
+  }
+  return conditions
+}
+
+function buildRawSqlClauses(fp: FilterParams): { clauses: string[]; params: any[] } {
+  const clauses: string[] = []
+  const params: any[] = []
+  if (fp.tags && fp.tags.length > 0) {
+    for (const tag of fp.tags) {
+      clauses.push("EXISTS (SELECT 1 FROM json_each(agents.tags) WHERE json_each.value = ?)")
+      params.push(tag)
+    }
+  }
+  if (fp.minScore > 0) { clauses.push("agents.score >= ?"); params.push(fp.minScore) }
+  if (fp.maxScore < 100) { clauses.push("agents.score <= ?"); params.push(fp.maxScore) }
+  if (fp.minInteractions > 0) { clauses.push("agents.verified_interactions_count >= ?"); params.push(fp.minInteractions) }
+  if (fp.maxInteractions < Number.MAX_SAFE_INTEGER) { clauses.push("agents.verified_interactions_count <= ?"); params.push(fp.maxInteractions) }
+  if (fp.minVolume) { clauses.push("CAST(agents.total_economic_volume AS REAL) >= CAST(? AS REAL)"); params.push(fp.minVolume) }
+  if (fp.maxVolume) { clauses.push("CAST(agents.total_economic_volume AS REAL) <= CAST(? AS REAL)"); params.push(fp.maxVolume) }
+  if (fp.registeredBefore > 0) { clauses.push("agents.created_at <= ?"); params.push(fp.registeredBefore) }
+  if (fp.registeredAfter > 0) { clauses.push("agents.created_at >= ?"); params.push(fp.registeredAfter) }
+  if (fp.hasServiceUrl === "true" || fp.hasServiceUrl === "1" || fp.hasServiceUrl === "") {
+    clauses.push("agents.service_url IS NOT NULL")
+  }
+  return { clauses, params }
 }
 
 export function periodToTimestamp(period: string): number | null {
@@ -48,6 +105,19 @@ app.get("/", async (c) => {
     return c.json({ error: "sortBy=relevance requires a search query (q parameter)" }, 400)
   }
 
+  const fp: FilterParams = {
+    tags,
+    minScore,
+    maxScore,
+    minInteractions,
+    maxInteractions,
+    minVolume,
+    maxVolume,
+    registeredBefore,
+    registeredAfter,
+    hasServiceUrl,
+  }
+
   let sanitizedQ: string | undefined
   if (q) {
     sanitizedQ = sanitizeFtsQuery(q)
@@ -56,34 +126,13 @@ app.get("/", async (c) => {
     }
   }
 
-  const conditions: any[] = []
-
+  const conditions = buildDrizzleConditions(fp)
   if (sanitizedQ) {
-    conditions.push(sql`EXISTS (
+    conditions.unshift(sql`EXISTS (
       SELECT 1 FROM agents_fts
       WHERE agents_fts MATCH ${sanitizedQ}
       AND agents_fts.rowid = agents.rowid
     )`)
-  }
-
-  if (tags && tags.length > 0) {
-    for (const tag of tags) {
-      conditions.push(sql`EXISTS (
-        SELECT 1 FROM json_each(agents.tags) WHERE json_each.value = ${tag}
-      )`)
-    }
-  }
-
-  if (minScore > 0) conditions.push(sql`${agents.score} >= ${minScore}`)
-  if (maxScore < 100) conditions.push(sql`${agents.score} <= ${maxScore}`)
-  if (minInteractions > 0) conditions.push(sql`${agents.verified_interactions_count} >= ${minInteractions}`)
-  if (maxInteractions < Number.MAX_SAFE_INTEGER) conditions.push(sql`${agents.verified_interactions_count} <= ${maxInteractions}`)
-  if (minVolume) conditions.push(sql`CAST(${agents.total_economic_volume} AS REAL) >= CAST(${minVolume} AS REAL)`)
-  if (maxVolume) conditions.push(sql`CAST(${agents.total_economic_volume} AS REAL) <= CAST(${maxVolume} AS REAL)`)
-  if (registeredBefore > 0) conditions.push(sql`${agents.created_at} <= ${registeredBefore}`)
-  if (registeredAfter > 0) conditions.push(sql`${agents.created_at} >= ${registeredAfter}`)
-  if (hasServiceUrl === "true" || hasServiceUrl === "1" || hasServiceUrl === "") {
-    conditions.push(sql`${agents.service_url} IS NOT NULL`)
   }
 
   const where = conditions.length > 0 ? sql.join(conditions, sql` AND `) : undefined
@@ -100,28 +149,9 @@ app.get("/", async (c) => {
 
   if (q && sortBy === "relevance") {
     const rawDb = getRawDb()
-    const nonFtsConditions: string[] = []
-    const params: any[] = []
+    const { clauses, params } = buildRawSqlClauses(fp)
 
-    if (tags && tags.length > 0) {
-      for (const tag of tags) {
-        nonFtsConditions.push(`EXISTS (SELECT 1 FROM json_each(agents.tags) WHERE json_each.value = ?)`)
-        params.push(tag)
-      }
-    }
-    if (minScore > 0) { nonFtsConditions.push("agents.score >= ?"); params.push(minScore) }
-    if (maxScore < 100) { nonFtsConditions.push("agents.score <= ?"); params.push(maxScore) }
-    if (minInteractions > 0) { nonFtsConditions.push("agents.verified_interactions_count >= ?"); params.push(minInteractions) }
-    if (maxInteractions < Number.MAX_SAFE_INTEGER) { nonFtsConditions.push("agents.verified_interactions_count <= ?"); params.push(maxInteractions) }
-    if (minVolume) { nonFtsConditions.push("CAST(agents.total_economic_volume AS REAL) >= CAST(? AS REAL)"); params.push(minVolume) }
-    if (maxVolume) { nonFtsConditions.push("CAST(agents.total_economic_volume AS REAL) <= CAST(? AS REAL)"); params.push(maxVolume) }
-    if (registeredBefore > 0) { nonFtsConditions.push("agents.created_at <= ?"); params.push(registeredBefore) }
-    if (registeredAfter > 0) { nonFtsConditions.push("agents.created_at >= ?"); params.push(registeredAfter) }
-    if (hasServiceUrl === "true" || hasServiceUrl === "1" || hasServiceUrl === "") {
-      nonFtsConditions.push("agents.service_url IS NOT NULL")
-    }
-
-    const whereClause = nonFtsConditions.length > 0 ? `AND ${nonFtsConditions.join(" AND ")}` : ""
+    const whereClause = clauses.length > 0 ? `AND ${clauses.join(" AND ")}` : ""
     const orderClause = sortOrder === "asc" ? "ASC" : "DESC"
 
     rows = rawDb.prepare(
@@ -163,9 +193,6 @@ app.get("/:address/stats", async (c) => {
   const dateExpr = useWeekBuckets
     ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
     : "date(timestamp, 'unixepoch', 'start of day')"
-  const ratingDateExpr = useWeekBuckets
-    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
-    : "date(timestamp, 'unixepoch', 'start of day')"
 
   const rawDb = getRawDb()
 
@@ -184,20 +211,16 @@ app.get("/:address/stats", async (c) => {
   const counterpartyParams = minTimestamp !== null
     ? [address, minTimestamp, address, minTimestamp]
     : [address, address]
-  const counterpartyWhere1 = minTimestamp !== null ? "AND timestamp >= ?" : ""
-  const counterpartyWhere2 = minTimestamp !== null ? "AND timestamp >= ?" : ""
-  const counterpartyDateExpr = useWeekBuckets
-    ? "strftime('%Y-W%W', timestamp, 'unixepoch')"
-    : "date(timestamp, 'unixepoch', 'start of day')"
+  const counterpartyWhere = minTimestamp !== null ? "AND timestamp >= ?" : ""
 
   const counterpartyRows = rawDb.prepare(
     `SELECT date, COUNT(DISTINCT counterparty) as unique_counterparties
      FROM (
-       SELECT ${counterpartyDateExpr} as date, consumer_address as counterparty
-       FROM interactions WHERE provider_address = ? ${counterpartyWhere1}
+       SELECT ${dateExpr} as date, consumer_address as counterparty
+       FROM interactions WHERE provider_address = ? ${counterpartyWhere}
        UNION ALL
-       SELECT ${counterpartyDateExpr} as date, provider_address as counterparty
-       FROM interactions WHERE consumer_address = ? ${counterpartyWhere2}
+       SELECT ${dateExpr} as date, provider_address as counterparty
+       FROM interactions WHERE consumer_address = ? ${counterpartyWhere}
      )
      GROUP BY date ORDER BY date ASC LIMIT 90`
   ).all(...counterpartyParams) as Array<{ date: string; unique_counterparties: number }>
@@ -208,7 +231,7 @@ app.get("/:address/stats", async (c) => {
   const scoreTrajectoryWhere = minTimestamp !== null ? "AND timestamp >= ?" : ""
 
   const scoreRows = rawDb.prepare(
-    `SELECT ${ratingDateExpr} as date, AVG(score) as score
+    `SELECT ${dateExpr} as date, AVG(score) as score
      FROM ratings WHERE provider_address = ? ${scoreTrajectoryWhere}
      GROUP BY date ORDER BY date ASC LIMIT 90`
   ).all(...scoreTrajectoryParams) as Array<{ date: string; score: number }>

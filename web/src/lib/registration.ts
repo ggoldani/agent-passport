@@ -3,7 +3,7 @@ import {
   Operation,
   TransactionBuilder,
 } from "@stellar/stellar-sdk"
-import { Server } from "@stellar/stellar-sdk/rpc"
+import { createRpcServer } from "../../../src/lib/rpc.js"
 import { buildMethodArgs } from "../../../src/sdk/scval.js"
 import type { AgentProfileInput } from "../../../src/sdk/types"
 
@@ -47,16 +47,14 @@ const CONTRACT_ERROR_MAP: Record<number, string> = {
 
 export function mapContractError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
-  const match = message.match(/\b(\d{1,2})\b/g)
+  const match = message.match(/Error\(Contract,\s*#(\d{1,2})\)/)
   if (match) {
-    for (const numStr of match) {
-      const code = Number(numStr)
-      if (code >= 1 && code <= 25 && CONTRACT_ERROR_MAP[code]) {
-        return CONTRACT_ERROR_MAP[code]
-      }
+    const code = Number(match[1])
+    if (code >= 1 && code <= 25 && CONTRACT_ERROR_MAP[code]) {
+      return CONTRACT_ERROR_MAP[code]
     }
   }
-  return message
+  return "Registration failed. Please try again."
 }
 
 export interface FormValidationError {
@@ -98,7 +96,6 @@ export function validateFormInput(input: FormInput): FormValidationError[] {
   for (const tag of tags) {
     if (tag.length > 32) {
       errors.push({ field: "tags", message: `Tag "${tag}" exceeds 32 characters` })
-      break
     }
   }
 
@@ -144,11 +141,7 @@ export async function buildAndPrepareRegistrationTx(
   profileInput: AgentProfileInput,
   config: RegistrationConfig,
 ): Promise<string> {
-  const isLocal = config.rpcUrl.startsWith("http://localhost") || config.rpcUrl.startsWith("http://127.0.0.1")
-  if (!isLocal && !config.rpcUrl.startsWith("https://")) {
-    throw new Error("RPC URL must use HTTPS in production")
-  }
-  const server = new Server(config.rpcUrl, { allowHttp: isLocal })
+  const server = createRpcServer(config.rpcUrl)
 
   const sourceAccount = await server.getAccount(walletAddress)
 
@@ -174,11 +167,7 @@ export async function submitSignedTransaction(
   signedTxXdr: string,
   config: RegistrationConfig,
 ): Promise<RegistrationResult> {
-  const isLocal = config.rpcUrl.startsWith("http://localhost") || config.rpcUrl.startsWith("http://127.0.0.1")
-  if (!isLocal && !config.rpcUrl.startsWith("https://")) {
-    throw new Error("RPC URL must use HTTPS in production")
-  }
-  const server = new Server(config.rpcUrl, { allowHttp: isLocal })
+  const server = createRpcServer(config.rpcUrl)
 
   const transaction = TransactionBuilder.fromXDR(signedTxXdr, config.networkPassphrase) as ReturnType<
     typeof TransactionBuilder.fromXDR

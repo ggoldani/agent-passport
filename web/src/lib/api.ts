@@ -328,7 +328,8 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
     if (response?.data) {
       return response.data.map(apiAgentToLeaderboardEntry)
     }
-  } catch {
+  } catch (err) {
+    console.error("[API] listLeaderboardAgents (API) failed:", err)
   }
 
   try {
@@ -354,7 +355,8 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
 
         return left.name.localeCompare(right.name);
       });
-  } catch {
+  } catch (err) {
+    console.error("[API] listLeaderboardAgents (contract) failed:", err)
     return []
   }
 }

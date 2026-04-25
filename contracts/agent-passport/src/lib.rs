@@ -212,7 +212,7 @@ impl AgentPassport {
     }
 
     pub fn get_agent(env: Env, owner_address: Address) -> AgentProfile {
-        read_profile(&env, &owner_address).unwrap()
+        read_profile(&env, &owner_address).unwrap_or_else(|| panic_with_error!(&env, Error::ProfileNotFound))
     }
 
     pub fn list_agents(env: Env, from: u32, limit: u32) -> Vec<AgentProfile> {

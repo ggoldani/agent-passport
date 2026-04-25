@@ -39,7 +39,11 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
   })
   const [validationErrors, setValidationErrors] = useState<FormValidationError[]>([])
   const [kitReady, setKitReady] = useState(false)
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const kitButtonRef = useRef<HTMLDivElement>(null)
+  const abortedRef = useRef(false)
+  const formInputRef = useRef(formInput)
+  formInputRef.current = formInput
 
   useEffect(() => {
     let cancelled = false
@@ -63,18 +67,24 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
         (event: { payload: { address: string | undefined } }) => {
           if (event.payload.address) {
             setKitReady(true)
+            setWalletAddress(event.payload.address)
           }
         },
       )
       unsub2 = StellarWalletsKit.on(KitEventType.DISCONNECT, () => {
         setKitReady(false)
+        setWalletAddress(null)
       })
 
+      // kitReady means "the kit button is rendered and interactive", not "a wallet is connected".
+      // The kit button itself handles the wallet connection flow. STATE_UPDATED refines
+      // the state when a wallet connects/disconnects.
       if (!cancelled && kitButtonRef.current) setKitReady(true)
     })()
 
     return () => {
       cancelled = true
+      abortedRef.current = true
       unsub1?.()
       unsub2?.()
     }
@@ -94,7 +104,8 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
   }, [])
 
   const handleSubmit = useCallback(async () => {
-    const errors = validateFormInput(formInput)
+    const currentFormInput = formInputRef.current
+    const errors = validateFormInput(currentFormInput)
     if (errors.length > 0) {
       setValidationErrors(errors)
       return
@@ -103,9 +114,15 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
 
     try {
       const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit/sdk")
+      if (abortedRef.current) return
       setState({ status: "connecting" })
 
-      const { address } = await StellarWalletsKit.getAddress()
+      let address = walletAddress
+      if (!address) {
+        const result = await StellarWalletsKit.getAddress()
+        if (abortedRef.current) return
+        address = result.address
+      }
       if (!address) {
         setState({
           status: "error",
@@ -114,21 +131,26 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
         return
       }
 
+      if (abortedRef.current) return
       setState({ status: "signing", address })
 
-      const profileInput = formInputToProfileInput(formInput)
+      const profileInput = formInputToProfileInput(currentFormInput)
       const preparedTxXdr = await buildAndPrepareRegistrationTx(address, profileInput, config)
+      if (abortedRef.current) return
 
       const { signedTxXdr } = await StellarWalletsKit.signTransaction(preparedTxXdr, {
         networkPassphrase: config.networkPassphrase,
         address,
       })
+      if (abortedRef.current) return
 
       setState({ status: "submitting", address })
 
       const result = await submitSignedTransaction(signedTxXdr, config)
+      if (abortedRef.current) return
       setState({ status: "success", txHash: result.txHash, address })
     } catch (error: unknown) {
+      if (abortedRef.current) return
       if (error instanceof Error && error.message.includes("getAccount")) {
         setState({
           status: "error",
@@ -140,7 +162,7 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
       const message = mapContractError(error)
       setState({ status: "error", message })
     }
-  }, [formInput, config])
+  }, [config, walletAddress])
 
   if (state.status === "success") {
     const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${state.txHash}`

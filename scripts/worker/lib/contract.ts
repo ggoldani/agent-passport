@@ -11,7 +11,7 @@ import { Server, type Api } from "@stellar/stellar-sdk/rpc"
 import type { WorkerInteractionPayload } from "./payload"
 import type { RelayerConfig } from "./relayer"
 
-const TRANSACTION_HASH_PATTERN = /^[a-f0-9]{64}$/i
+import { TRANSACTION_HASH_PATTERN } from "./constants"
 const DEFAULT_TIMEOUT_SECONDS = 30
 
 export interface SubmitInteractionOptions {

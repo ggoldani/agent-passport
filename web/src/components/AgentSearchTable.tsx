@@ -50,7 +50,7 @@ export function AgentSearchTable({ agents }: { agents: Agent[] }) {
                 <strong>{agent.name}</strong>
                 <TrustTierBadge tier={agent.trust_tier} />
               </div>
-              <p className="row-subtle">{agent.description.slice(0, 100)}</p>
+              <p className="row-subtle">{agent.description ? agent.description.slice(0, 100) : ""}</p>
               {agent.tags.length > 0 && (
                 <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
                   {agent.tags.map((tag) => (

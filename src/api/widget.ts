@@ -34,7 +34,7 @@ export const WIDGET_JS = `(function(){
   }
   function render(d){
     var tc=c.tier[d.trust_tier]||c.tier.new;
-    var tn=d.trust_tier.charAt(0).toUpperCase()+d.trust_tier.slice(1);
+    var tn=esc(d.trust_tier.charAt(0).toUpperCase()+d.trust_tier.slice(1));
     var vol=d.total_economic_volume;
     var vn=parseFloat(vol);
     var vs="0";

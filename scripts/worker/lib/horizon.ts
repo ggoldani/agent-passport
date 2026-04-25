@@ -22,7 +22,7 @@ interface HorizonTransactionResponseShape {
   operation_count?: unknown
 }
 
-const TRANSACTION_HASH_PATTERN = /^[a-f0-9]{64}$/i
+import { TRANSACTION_HASH_PATTERN } from "./constants"
 
 function normalizeBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim()

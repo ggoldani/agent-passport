@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { TransactionBuilder, StrKey, Operation, Transaction } from "@stellar/stellar-sdk"
-import { Server } from "@stellar/stellar-sdk/rpc"
+import { createRpcServer } from "../../lib/rpc.js"
 import { xdr } from "@stellar/stellar-sdk"
 
 const CONTRACT_ID = process.env.CONTRACT_ID
@@ -24,12 +24,10 @@ const MAX_XDR_LENGTH = 4096
 
 function extractContractErrorCode(error: unknown): number | null {
   const message = error instanceof Error ? error.message : String(error)
-  const match = message.match(/\b(\d{1,2})\b/g)
+  const match = message.match(/Error\(Contract,\s*#(\d{1,2})\)/)
   if (match) {
-    for (const numStr of match) {
-      const code = Number(numStr)
-      if (code >= 1 && code <= 25) return code
-    }
+    const code = Number(match[1])
+    if (code >= 1 && code <= 25) return code
   }
   return null
 }
@@ -98,8 +96,7 @@ app.post("/", async (c) => {
   }
 
   try {
-    const isLocal = RPC_URL.startsWith("http://localhost") || RPC_URL.startsWith("http://127.0.0.1")
-    const server = new Server(RPC_URL, { allowHttp: isLocal })
+    const server = createRpcServer(RPC_URL)
 
     const submission = await server.sendTransaction(parsed)
     if (submission.status === "ERROR") {
@@ -116,7 +113,7 @@ app.post("/", async (c) => {
         const mapped = CONTRACT_ERROR_MAP[code]
         return c.json({ error: mapped.message }, mapped.status as 400 | 409)
       }
-      return c.json({ error: "Transaction polling failed" }, 502)
+      return c.json({ error: "Transaction polling failed", tx_hash: submission.hash }, 502)
     }
 
     if (pollResult.status !== "SUCCESS") {
