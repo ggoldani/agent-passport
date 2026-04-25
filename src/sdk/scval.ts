@@ -6,6 +6,7 @@ import type {
   AgentPassportMethodName,
 } from "./agent-passport.js"
 import type {
+  Address,
   AgentProfileInput,
   InteractionRecord,
   RatingInput,
@@ -105,8 +106,7 @@ export function buildMethodArgs(
   args: AgentPassportMethodArgs[AgentPassportMethodName],
 ): xdr.ScVal[] {
   switch (method) {
-    case "init":
-    case "update_relayer": {
+    case "init": {
       const a = args as AgentPassportMethodArgs["init"]
       return [
         nativeToScVal(a[0], { type: "address" }),
@@ -114,12 +114,26 @@ export function buildMethodArgs(
       ]
     }
     case "get_config":
-    case "list_agents":
+    case "get_relayers":
       return []
-    case "get_agent":
-    case "list_agent_interactions": {
+    case "list_agents": {
+      const a = args as AgentPassportMethodArgs["list_agents"]
+      return [
+        nativeToScVal(a[0], { type: "u32" }),
+        nativeToScVal(a[1], { type: "u32" }),
+      ]
+    }
+    case "get_agent": {
       const a = args as AgentPassportMethodArgs["get_agent"]
       return [nativeToScVal(a[0], { type: "address" })]
+    }
+    case "list_agent_interactions": {
+      const a = args as AgentPassportMethodArgs["list_agent_interactions"]
+      return [
+        nativeToScVal(a[0], { type: "address" }),
+        nativeToScVal(a[1], { type: "u32" }),
+        nativeToScVal(a[2], { type: "u32" }),
+      ]
     }
     case "get_rating": {
       const a = args as AgentPassportMethodArgs["get_rating"]
@@ -143,5 +157,37 @@ export function buildMethodArgs(
       const a = args as AgentPassportMethodArgs["submit_rating"]
       return [buildRatingInputScVal(a[0])]
     }
+    case "add_relayer":
+    case "remove_relayer":
+    case "transfer_admin": {
+      const a = args as [Address, Address]
+      return [
+        nativeToScVal(a[0], { type: "address" }),
+        nativeToScVal(a[1], { type: "address" }),
+      ]
+    }
+    case "accept_admin": {
+      const a = args as AgentPassportMethodArgs["accept_admin"]
+      return [nativeToScVal(a[0], { type: "address" })]
+    }
+    case "cancel_admin_transfer": {
+      const a = args as AgentPassportMethodArgs["cancel_admin_transfer"]
+      return [nativeToScVal(a[0], { type: "address" })]
+    }
+    case "update_profile": {
+      const a = args as AgentPassportMethodArgs["update_profile"]
+      return [
+        nativeToScVal(a[0], { type: "address" }),
+        buildAgentProfileInputScVal(a[1]),
+      ]
+    }
+    case "deregister_agent": {
+      const a = args as AgentPassportMethodArgs["deregister_agent"]
+      return [nativeToScVal(a[0], { type: "address" })]
+    }
   }
+
+  const _exhaustive: never = method
+  void _exhaustive
+  return []
 }

@@ -15,7 +15,8 @@
     "indexer": "tsx scripts/run-indexer.ts",
     "api": "tsx scripts/run-api.ts",
     "sync": "tsx scripts/run-sync.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:registration": "tsx scripts/test-e2e-registration.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

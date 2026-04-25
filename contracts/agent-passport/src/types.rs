@@ -4,7 +4,8 @@ use soroban_sdk::{contracttype, Address, BytesN, String, Vec};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     pub admin: Address,
-    pub authorized_relayer: Address,
+    pub pending_admin: Option<Address>,
+    pub admin_transfer_at: u64,
 }
 
 #[contracttype]

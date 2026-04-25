@@ -25,12 +25,14 @@ export interface RawGetEventsResponse {
   events: RawEvent[]
 }
 
-export type EventType = "agent_registered" | "interaction_registered" | "rating_submitted"
+export type EventType = "agent_registered" | "interaction_registered" | "rating_submitted" | "profile_updated" | "agent_deregistered"
 
 export const EVENT_SYMBOL_PREFIXES: Readonly<Record<EventType, string>> = {
   agent_registered: "agent_registered",
   interaction_registered: "interaction_registered",
   rating_submitted: "rating_submitted",
+  profile_updated: "profile_updated",
+  agent_deregistered: "agent_deregistered",
 }
 
 export async function fetchLatestLedger(server: Server): Promise<number> {

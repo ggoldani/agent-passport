@@ -7,17 +7,22 @@
     "start": "next start"
   },
   "dependencies": {
+    "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@stellar/stellar-sdk": "^15.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
-    "next": "15.5.14",
+    "next": "^15.5.15",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0"
+  },
+  "overrides": {
+    "protobufjs": ">=7.5.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",

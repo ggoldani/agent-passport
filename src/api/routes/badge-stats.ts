@@ -1,11 +1,13 @@
 import { Hono } from "hono"
 import { eq } from "drizzle-orm"
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import { agents } from "../../indexer/db/schema.js"
+import * as schema from "../../indexer/db/schema.js"
 import { computeTrustTier } from "../types.js"
 import type { BadgeStatsResponse } from "../types.js"
 import { isValidStellarAddress } from "../validate.js"
 
-type Variables = { db: any }
+type Variables = { db: BetterSQLite3Database<typeof schema> }
 
 const app = new Hono<{ Variables: Variables }>()
 

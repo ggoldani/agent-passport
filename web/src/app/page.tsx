@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams
-  const response = await searchAgents(params as Record<string, string>)
+  const safeParams: Record<string, string> = {}
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      safeParams[key] = Array.isArray(value) ? value[0] : value
+    }
+  }
+  const response = await searchAgents(safeParams)
   const agents = response?.data ?? []
 
   return (

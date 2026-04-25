@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
+
+import { loadEnvFile } from "../src/lib/env.js"
 
 import {
   BASE_FEE,
@@ -268,33 +269,7 @@ async function readJsonBody(response: Response): Promise<unknown> {
   }
 }
 
-function readLocalEnvFile(): Record<string, string> {
-  const envPath = resolve(process.cwd(), ".env")
-  if (!existsSync(envPath)) {
-    return {}
-  }
-
-  return Object.fromEntries(
-    readFileSync(envPath, "utf8")
-      .split(/\n+/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith("#"))
-      .map((line) => {
-        const delimiterIndex = line.indexOf("=")
-        if (delimiterIndex === -1) {
-          return [line, ""]
-        }
-
-        const key = line.slice(0, delimiterIndex).trim()
-        const rawValue = line.slice(delimiterIndex + 1).trim()
-        const value =
-          rawValue.startsWith("\"") && rawValue.endsWith("\"")
-            ? rawValue.slice(1, -1)
-            : rawValue
-        return [key, value]
-      }),
-  )
-}
+const readLocalEnvFile = loadEnvFile
 
 function loadDemoEnv(
   processEnv: Record<string, string | undefined>,
@@ -585,7 +560,7 @@ async function listAgents(
   server: Server,
   config: DemoRuntimeConfig,
 ): Promise<AgentProfile[]> {
-  const result = await readContractMethod(server, config, "list_agents", [])
+  const result = await readContractMethod(server, config, "list_agents", [0, 100])
   if (!Array.isArray(result)) {
     throw new Error(
       `Invalid list_agents result: expected array, got ${JSON.stringify(result)}`,
@@ -882,14 +857,13 @@ export async function runPaidStellarIntelCallStep(
     body: requestBody,
   })
 
+  const unpaidBody = await readJsonBody(unpaidResponse)
+
   if (unpaidResponse.status !== 402) {
-    const body = await readJsonBody(unpaidResponse)
     throw new Error(
-      `Expected 402 from unpaid analyze-account request, got ${unpaidResponse.status} ${JSON.stringify(body)}`,
+      `Expected 402 from unpaid analyze-account request, got ${unpaidResponse.status} ${JSON.stringify(unpaidBody)}`,
     )
   }
-
-  const unpaidBody = await readJsonBody(unpaidResponse)
   const paymentRequired = client.getPaymentRequiredResponse(
     (name) => unpaidResponse.headers.get(name),
     unpaidBody,

@@ -1,9 +1,11 @@
 import { Hono } from "hono"
 import { eq, desc, sql } from "drizzle-orm"
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import { ratings } from "../../indexer/db/schema.js"
+import * as schema from "../../indexer/db/schema.js"
 import type { RatingResponse, PaginatedResponse } from "../types.js"
 
-type Variables = { db: any }
+type Variables = { db: BetterSQLite3Database<typeof schema> }
 
 const app = new Hono<{ Variables: Variables }>()
 

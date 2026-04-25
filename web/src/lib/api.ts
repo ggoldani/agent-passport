@@ -73,6 +73,10 @@ type ApiCounterpartyResponse = {
 
 const API_BASE = process.env.API_URL ?? "http://localhost:3002"
 
+if (typeof window !== "undefined" && API_BASE.startsWith("http://") && !API_BASE.includes("localhost") && !API_BASE.includes("127.0.0.1")) {
+  throw new Error("API_BASE uses HTTP in production. Set NEXT_PUBLIC_API_URL or API_URL to an HTTPS URL.")
+}
+
 async function fetchFromApi<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${API_BASE}${path}`)
@@ -231,16 +235,28 @@ function buildContractArgs<M extends AgentPassportReadMethodName>(
 ): xdr.ScVal[] {
   switch (method) {
     case "get_agent":
-    case "list_agent_interactions":
       return [nativeToScVal(args[0], { type: "address" })];
+    case "list_agent_interactions": {
+      const [addr] = args as AgentPassportMethodArgs["list_agent_interactions"];
+      return [
+        nativeToScVal(addr, { type: "address" }),
+        nativeToScVal(0, { type: "u32" }),
+        nativeToScVal(100, { type: "u32" }),
+      ];
+    }
     case "get_rating": {
       const [interactionTxHash] = args as AgentPassportMethodArgs["get_rating"];
 
       return [xdr.ScVal.scvBytes(Buffer.from(interactionTxHash, "hex"))];
     }
     case "get_config":
-    case "list_agents":
+    case "get_relayers":
       return [];
+    case "list_agents":
+      return [
+        nativeToScVal(0, { type: "u32" }),
+        nativeToScVal(100, { type: "u32" }),
+      ];
     default: {
       const exhaustiveCheck: never = method;
       throw new Error(`Unsupported dashboard read method: ${String(exhaustiveCheck)}`);
@@ -312,7 +328,8 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
     if (response?.data) {
       return response.data.map(apiAgentToLeaderboardEntry)
     }
-  } catch {
+  } catch (err) {
+    console.error("[API] listLeaderboardAgents (API) failed:", err)
   }
 
   try {
@@ -338,7 +355,8 @@ export async function listLeaderboardAgents(): Promise<AgentLeaderboardEntry[]> 
 
         return left.name.localeCompare(right.name);
       });
-  } catch {
+  } catch (err) {
+    console.error("[API] listLeaderboardAgents (contract) failed:", err)
     return []
   }
 }

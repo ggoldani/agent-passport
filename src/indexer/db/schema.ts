@@ -15,6 +15,7 @@ export const agents = sqliteTable("agents", {
   unique_counterparties_count: integer().notNull().default(0),
   last_interaction_timestamp: integer(),
   updated_at: integer().notNull().default(0),
+  trust_tier: text().default("active"),
 })
 
 export const interactions = sqliteTable("interactions", {
