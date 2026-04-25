@@ -11,8 +11,10 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+const SAFE_LINK_RE = /^(https?:\/\/|\/|#)/;
+
 function processInline(text: string): string {
-  let html = text;
+  let html = escapeHtml(text);
   html = html.replace(
     /\*\*(.+?)\*\*/g,
     "<strong>$1</strong>"
@@ -23,7 +25,12 @@ function processInline(text: string): string {
   );
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2">$1</a>'
+    (_, label, href) => {
+      if (SAFE_LINK_RE.test(href)) {
+        return `<a href="${href}">${label}</a>`;
+      }
+      return label;
+    }
   );
   return html;
 }

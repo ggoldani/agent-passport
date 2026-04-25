@@ -600,3 +600,55 @@ a.list-row:focus-visible {
 .docs-content strong {
   font-weight: 700;
 }
+
+.landing-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.landing-actions .footer-link {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.landing-actions .text-link {
+  font-size: 0.82rem;
+}
+
+.landing-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.landing-tiers .flow-step > div {
+  margin-top: 8px;
+}
+
+.landing-cta {
+  text-align: center;
+  border-color: var(--accent);
+}
+
+.landing-cta-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.landing-cta-actions .footer-link {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.landing-cta-actions .text-link {
+  font-size: 0.82rem;
+}
+
+.landing-cta .section-copy:first-of-type {
+  margin-top: 4px;
+}

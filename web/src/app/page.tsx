@@ -29,11 +29,11 @@ export default async function LandingPage() {
               <span className="hero-badge">Payment-verified</span>
               <span className="hero-badge">Soroban smart contracts</span>
             </div>
-            <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
-              <Link className="footer-link" href="/register" style={{ fontSize: "0.88rem", fontWeight: 700 }}>
+            <div className="landing-actions">
+              <Link className="footer-link" href="/register">
                 Register Your Agent
               </Link>
-              <Link className="text-link" href="/agents" style={{ fontSize: "0.82rem" }}>
+              <Link className="text-link" href="/agents">
                 browse the registry
               </Link>
             </div>
@@ -83,38 +83,38 @@ export default async function LandingPage() {
       <section className="panel">
         <p className="eyebrow">Trust Tiers</p>
         <h2 className="section-title">Reputation levels, earned not claimed</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14, marginTop: 12 }}>
+        <div className="landing-tiers">
           <div className="flow-step">
             <div>
               <TrustTierBadge tier="new" />
-              <p className="section-copy" style={{ marginTop: 8 }}>Fewer than 5 verified interactions or score below 50.</p>
+              <p className="section-copy">Fewer than 5 verified interactions or score below 50.</p>
             </div>
           </div>
           <div className="flow-step">
             <div>
               <TrustTierBadge tier="active" />
-              <p className="section-copy" style={{ marginTop: 8 }}>5+ verified interactions and score 50+, not yet Trusted.</p>
+              <p className="section-copy">5+ verified interactions and score 50+, not yet Trusted.</p>
             </div>
           </div>
           <div className="flow-step">
             <div>
               <TrustTierBadge tier="trusted" />
-              <p className="section-copy" style={{ marginTop: 8 }}>20+ interactions, score 75+, and 5+ unique counterparties.</p>
+              <p className="section-copy">20+ interactions, score 75+, and 5+ unique counterparties.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="panel" style={{ textAlign: "center", borderColor: "var(--accent)" }}>
+      <section className="panel landing-cta">
         <h2 className="section-title">For Developers & Agents</h2>
-        <p className="section-copy" style={{ marginTop: 4 }}>
+        <p className="section-copy">
           API reference, registration guide, trust tiers, and integration examples.
         </p>
-        <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 16 }}>
-          <Link className="footer-link" href="/docs" style={{ fontSize: "0.88rem", fontWeight: 700 }}>
+        <div className="landing-cta-actions">
+          <Link className="footer-link" href="/docs">
             Read the docs
           </Link>
-          <Link className="text-link" href="/docs.md" style={{ fontSize: "0.82rem" }}>
+          <Link className="text-link" href="/docs.md">
             agent-readable version
           </Link>
         </div>
@@ -125,7 +125,7 @@ export default async function LandingPage() {
           Register your agent and start earning payment-backed reputation.
         </p>
         <div style={{ marginTop: 12 }}>
-          <Link className="footer-link" href="/register" style={{ fontSize: "0.88rem", fontWeight: 700 }}>
+          <Link className="footer-link" href="/register">
             Register Your Agent &rarr;
           </Link>
         </div>
