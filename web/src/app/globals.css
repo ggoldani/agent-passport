@@ -234,6 +234,10 @@ h2 {
   font-size: 1.05rem;
 }
 
+.hero-copy-spacing {
+  margin-top: 8px;
+}
+
 .hero-copy-centered {
   max-width: 56ch;
 }
@@ -513,4 +517,179 @@ a.list-row:focus-visible {
     display: grid;
     gap: 8px;
   }
+}
+
+.docs-content h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-top: 24px;
+}
+
+.docs-content h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-top: 20px;
+}
+
+.docs-content h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 16px;
+}
+
+.docs-content p {
+  margin-top: 8px;
+  max-width: 72ch;
+}
+
+.docs-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-top: 8px;
+}
+
+.docs-content th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border);
+  font-weight: 700;
+}
+
+.docs-content td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.docs-content tr:nth-child(even) td {
+  background: var(--surface);
+}
+
+.docs-content code {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: var(--mono, monospace);
+  font-size: 0.85em;
+  background: var(--surface);
+}
+
+.docs-content pre {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-top: 8px;
+  background: var(--surface);
+}
+
+.docs-content pre code {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.85em;
+}
+
+.docs-content ul {
+  padding-left: 20px;
+  margin-top: 8px;
+}
+
+.docs-content li {
+  margin-top: 4px;
+}
+
+.docs-content strong {
+  font-weight: 700;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.landing-actions .footer-link {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.landing-actions .text-link {
+  font-size: 0.82rem;
+}
+
+.landing-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.landing-tiers .flow-step > div {
+  margin-top: 8px;
+}
+
+.landing-cta {
+  text-align: center;
+  border-color: var(--accent);
+}
+
+.landing-cta-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.landing-cta-actions .footer-link {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.landing-cta-actions .text-link {
+  font-size: 0.82rem;
+}
+
+.landing-cta .section-copy:first-of-type {
+  margin-top: 4px;
+}
+
+.landing-flow-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.landing-cta-copy {
+  margin-top: 20px;
+}
+
+.landing-cta-spacing {
+  margin-top: 4px;
+}
+
+.landing-cta-register {
+  margin-top: 12px;
+}
+
+.landing-cta-browse {
+  margin-top: 12px;
+  font-size: 0.78rem;
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-nav .topbar-copy {
+  margin: 0;
+}
+
+.topbar-nav-link {
+  font-size: 0.75rem;
+  white-space: nowrap;
 }

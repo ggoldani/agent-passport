@@ -135,7 +135,7 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
       setState({ status: "signing", address })
 
       const profileInput = formInputToProfileInput(currentFormInput)
-      const preparedTxXdr = await buildAndPrepareRegistrationTx(address, profileInput, config)
+      const preparedTxXdr = await buildAndPrepareRegistrationTx(address, profileInput)
       if (abortedRef.current) return
 
       const { signedTxXdr } = await StellarWalletsKit.signTransaction(preparedTxXdr, {
@@ -146,17 +146,22 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
 
       setState({ status: "submitting", address })
 
-      const result = await submitSignedTransaction(signedTxXdr, config)
+      const result = await submitSignedTransaction(signedTxXdr)
       if (abortedRef.current) return
       setState({ status: "success", txHash: result.txHash, address })
     } catch (error: unknown) {
       if (abortedRef.current) return
-      if (error instanceof Error && error.message.includes("getAccount")) {
+      const msg = error instanceof Error ? error.message : typeof error === "object" && error !== null && "message" in error ? String((error as { message: unknown }).message) : String(error)
+      if (msg.includes("getAccount") || msg.includes("not funded") || msg.includes("Account not found")) {
         setState({
           status: "error",
           message:
             "Your wallet account is not funded. Please fund it with at least 1 XLM using the Stellar testnet faucet.",
         })
+        return
+      }
+      if (msg.includes("rejected") || msg.includes("User rejected")) {
+        setState({ status: "idle" })
         return
       }
       const message = mapContractError(error)

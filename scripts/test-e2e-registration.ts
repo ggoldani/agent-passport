@@ -11,12 +11,17 @@ import { Server } from "@stellar/stellar-sdk/rpc"
 
 import { buildMethodArgs } from "../src/sdk/scval.js"
 import type { AgentProfileInput } from "../src/sdk/types.js"
-import type { RegistrationConfig } from "../web/src/lib/registration.js"
+
+interface TestConfig {
+  rpcUrl: string
+  networkPassphrase: string
+  contractId: string
+}
 
 const TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015"
 const TESTNET_FRIENDBOT_URL = "https://friendbot.stellar.org"
 
-function getConfig(): RegistrationConfig {
+function getConfig(): TestConfig {
   const rpcUrl = process.env.STELLAR_RPC_URL
   const networkPassphrase = process.env.STELLAR_NETWORK_PASSPHRASE
   const contractId = process.env.CONTRACT_ID
@@ -39,7 +44,7 @@ async function fundAccount(keypair: Keypair): Promise<void> {
 async function buildSignAndSubmitTx(
   keypair: Keypair,
   profileInput: AgentProfileInput,
-  config: RegistrationConfig,
+  config: TestConfig,
 ): Promise<{ txHash: string }> {
   const server = new Server(config.rpcUrl, { allowHttp: true })
 
@@ -77,7 +82,7 @@ async function buildSignAndSubmitTx(
 
 async function verifyRegistration(
   address: string,
-  config: RegistrationConfig,
+  config: TestConfig,
 ): Promise<boolean> {
   const server = new Server(config.rpcUrl, { allowHttp: true })
   const simResult = await server.simulateTransaction(

@@ -1,6 +1,6 @@
 # AgentPassport — Canonical Development Roadmap
 
-**Last updated:** April 23, 2026
+**Last updated:** April 24, 2026
 **Approach:** Core Loop Completion — each phase delivers a self-contained increment
 
 ---
@@ -558,24 +558,31 @@ Phase 4 is complete when:
 
 **Dependencies:** 5.1 (contract must support `update_profile` for future edits)
 
-### 5.3 Landing Page
+### 5.3 Landing Page + Documentation
 
-**What:** Add a public landing page to the existing Next.js dashboard (`web/`):
-- Hero section with value proposition and "Why Stellar" positioning
-- Live leaderboard embed (top agents by score)
-- How-it-works section (register → interact → build trust)
-- Trust tier explanation
-- CTA to register (links to registration flow from 5.2)
+**Status:** DONE. April 2026. 8 commits. `tsc --noEmit` zero errors. Full code quality review (0 issues). Full security review (0 issues, risk: low).
 
-**Why:** The dashboard is already a working product (agent list, search, filters, detail pages, analytics, counterparty list, widget embed). It just needs a front door. A landing page is the top of the acquisition funnel.
+**Delivered:**
+- **Landing page** (`web/src/app/page.tsx`): 5-section marketing page — hero (value prop + CTA), how-it-works (3-step flow), live leaderboard (top 5), trust tiers (New/Active/Trusted with exact thresholds), docs+CTA section. Uses existing components (LeaderboardTable, TrustTierBadge). CSS classes extracted for reusable patterns (`.landing-actions`, `.landing-tiers`, `.landing-cta`).
+- **Agent search moved** to `/agents` (`web/src/app/agents/page.tsx`): unchanged functionality, relocated from homepage.
+- **Documentation pages**: HTML docs at `/docs` with minimal markdown-to-HTML converter (code blocks, tables, headings, lists, inline formatting, links, XSS-hardened with `escapeHtml` before tag wrapping + `javascript:` URI filtering). Raw markdown at `/docs.md` for AI agents (text/markdown, 5min cache).
+- **Shared docs content** (`web/src/lib/docs-content.ts`): single source of truth covering what is AgentPassport, registration (web + API), profile constraints, trust tiers (exact thresholds), complete API reference (all 14 endpoints), badge embed guide, rate limits, for-agents section, architecture overview.
+- **Layout updates**: title "AgentPassport" (not "Dashboard"), Explore + Docs + Register in topbar, Docs in footer. `.docs-content` CSS styles in globals.css.
+- **Gitignore fix**: `/docs/` scoped to root to allow `web/src/app/docs/` tracking.
 
-**NOT rebuilding:** Agent detail pages, analytics dashboard, widget docs — these already exist in the current dashboard.
+**Key files:** `web/src/app/page.tsx`, `web/src/app/agents/page.tsx`, `web/src/app/docs/page.tsx`, `web/src/app/docs.md/route.ts`, `web/src/lib/docs-content.ts`, `web/src/app/layout.tsx`, `web/src/app/globals.css`
 
-**Delivers:** A public URL that explains AgentPassport and converts visitors into registered agents.
+**Post-implementation hardening (from reviews):**
+- Security: `processInline` now calls `escapeHtml()` before wrapping in HTML tags, link hrefs filtered against `javascript:` scheme (only `http://`, `https://`, `/`, `#` allowed)
+- Code quality: 10+ inline styles extracted to CSS classes (`.landing-actions`, `.landing-tiers`, `.landing-cta`, `.landing-cta-actions`)
 
-**Effort:** Small-Medium
+**Why:** The dashboard needed a front door. A landing page is the top of the acquisition funnel. Documentation enables developer self-service and AI agent discovery.
 
-**Dependencies:** 5.2 (registration page should be linked from landing page CTA)
+**Delivers:** A public URL that explains AgentPassport, provides complete API reference, and converts visitors into registered agents.
+
+**Effort:** Small-Medium (as estimated)
+
+**Dependencies:** 5.2 (registration page linked from landing page CTA)
 
 ### 5.4 Onboarding Flow
 
@@ -628,7 +635,7 @@ Phase 4 is complete when:
 None ────────────────────→ 5.1 Contract hardening ✅ DONE
 5.1 (contract) ──────────→ 5.2 Self-service registration ✅ DONE
 5.1 + Phase 2 ──────────→ 5.5 StellarMCP + AI Discovery Skills (independent of 5.2/5.3)
-5.2 (registration) ──────→ 5.3 Landing page (CTA links to registration)
+5.2 (registration) ──────→ 5.3 Landing page + Docs ✅ DONE
 5.4 Onboarding ──────────→ DEFERRED (after real users exist)
 5.6 Mainnet readiness ───→ DEFERRED (after testnet usage)
 5.7 Developer docs ──────→ DEFERRED (after developer demand)
@@ -641,7 +648,7 @@ Phase 5 is complete when:
 - [x] Contract has zero critical security findings
 - [x] Contract supports pagination, profile updates, relayer set
 - [x] Agent registers through website using wallet (no CLI, G and C addresses)
-- [ ] Public landing page is live
+- [x] Public landing page is live
 - [ ] Onboarding flow guides to first action (deferred)
 - [ ] Trust queries available through stellar-mcp
 - [ ] Mainnet runbook documented (deferred)
@@ -714,7 +721,7 @@ Phase 4: Analytics & Distribution (DONE)
 Phase 5: Production & Onboarding (In Progress)
 ├── 5.1 Contract hardening ✅ DONE
 ├── 5.2 Self-service registration ✅ DONE
-├── 5.3 Landing page (5.2)
+├── 5.3 Landing page + Docs ✅ DONE
 ├── 5.4 Onboarding flow — DEFERRED
 ├── 5.5 StellarMCP + AI Discovery Skills (Phase 2, 5.1)
 ├── 5.6 Mainnet readiness — DEFERRED

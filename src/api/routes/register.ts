@@ -3,10 +3,6 @@ import { TransactionBuilder, StrKey, Operation, Transaction } from "@stellar/ste
 import { createRpcServer } from "../../lib/rpc.js"
 import { xdr } from "@stellar/stellar-sdk"
 
-const CONTRACT_ID = process.env.CONTRACT_ID
-const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE
-const RPC_URL = process.env.STELLAR_RPC_URL
-
 const CONTRACT_ERROR_MAP: Record<number, { status: number; message: string }> = {
   2: { status: 409, message: "This address is already registered" },
   17: { status: 400, message: "Agent name is required" },
@@ -35,6 +31,10 @@ function extractContractErrorCode(error: unknown): number | null {
 const app = new Hono()
 
 app.post("/", async (c) => {
+  const CONTRACT_ID = process.env.CONTRACT_ID
+  const NETWORK_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE
+  const RPC_URL = process.env.STELLAR_RPC_URL
+
   if (!CONTRACT_ID || !NETWORK_PASSPHRASE || !RPC_URL) {
     return c.json({ error: "Server not configured for transaction submission" }, 500)
   }

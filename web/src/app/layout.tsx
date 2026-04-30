@@ -5,7 +5,7 @@ const DEMO_CONTRACT_ID = "CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U
 const DEMO_PROVIDER_ADDRESS = "GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT";
 
 export const metadata: Metadata = {
-  title: "AgentPassport Dashboard",
+  title: "AgentPassport",
   description: "Public trust registry for payment-backed agent reputation on Stellar"
 };
 
@@ -30,11 +30,17 @@ export default function RootLayout({
                 </a>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <p className="topbar-copy" style={{ margin: 0 }}>
+            <div className="topbar-nav">
+              <p className="topbar-copy">
                 Public reputation records derived from verified paid interactions.
               </p>
-              <a className="footer-link" href="/register" style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
+              <a className="footer-link topbar-nav-link" href="/agents">
+                Explore
+              </a>
+              <a className="footer-link topbar-nav-link" href="/docs">
+                Docs
+              </a>
+              <a className="footer-link topbar-nav-link" href="/register">
                 Register Agent
               </a>
             </div>
@@ -62,6 +68,12 @@ export default function RootLayout({
               href="/register"
             >
               Register agent
+            </a>
+            <a
+              className="footer-link"
+              href="/docs"
+            >
+              Docs
             </a>
           </footer>
         </div>
