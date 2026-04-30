@@ -30,17 +30,17 @@ export default function RootLayout({
                 </a>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <p className="topbar-copy" style={{ margin: 0 }}>
+            <div className="topbar-nav">
+              <p className="topbar-copy">
                 Public reputation records derived from verified paid interactions.
               </p>
-              <a className="footer-link" href="/agents" style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
+              <a className="footer-link topbar-nav-link" href="/agents">
                 Explore
               </a>
-              <a className="footer-link" href="/docs" style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
+              <a className="footer-link topbar-nav-link" href="/docs">
                 Docs
               </a>
-              <a className="footer-link" href="/register" style={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
+              <a className="footer-link topbar-nav-link" href="/register">
                 Register Agent
               </a>
             </div>

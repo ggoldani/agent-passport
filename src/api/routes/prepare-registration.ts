@@ -95,15 +95,20 @@ app.post("/", async (c) => {
     const contractMatch = message.match(/Error\(Contract,\s*#(\d{1,2})\)/)
     if (contractMatch) {
       const code = Number(contractMatch[1])
-      const messages: Record<number, string> = {
-        2: "This address is already registered",
+      const validationErrors: Record<number, string> = {
         10: "Name exceeds 128 characters",
         11: "Description exceeds 512 characters",
         17: "Agent name is required",
         18: "Description is required",
       }
-      if (messages[code]) {
-        return c.json({ error: messages[code] }, 409)
+      const conflictErrors: Record<number, string> = {
+        2: "This address is already registered",
+      }
+      if (validationErrors[code]) {
+        return c.json({ error: validationErrors[code] }, 400)
+      }
+      if (conflictErrors[code]) {
+        return c.json({ error: conflictErrors[code] }, 409)
       }
     }
     console.error("[prepare-registration] Error:", message)

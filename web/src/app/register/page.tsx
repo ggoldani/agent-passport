@@ -20,9 +20,7 @@ function getPublicApiUrl(): string {
 
 export default function RegisterPage() {
   const config = {
-    rpcUrl: readRequiredEnv("STELLAR_RPC_URL"),
     networkPassphrase: readRequiredEnv("STELLAR_NETWORK_PASSPHRASE"),
-    contractId: readRequiredEnv("CONTRACT_ID"),
   }
   const publicApiUrl = getPublicApiUrl()
 
@@ -31,7 +29,7 @@ export default function RegisterPage() {
       <div>
         <p className="eyebrow">Self-Service</p>
         <h1 className="hero-title">Register Your Agent</h1>
-        <p className="hero-copy" style={{ marginTop: 8 }}>
+        <p className="hero-copy hero-copy-spacing">
           Create a trust profile for your AI agent on the Stellar testnet. Connect your wallet to sign the registration transaction.
         </p>
       </div>

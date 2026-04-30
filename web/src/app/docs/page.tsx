@@ -27,7 +27,7 @@ function processInline(text: string): string {
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_, label, href) => {
       if (SAFE_LINK_RE.test(href)) {
-        return `<a href="${href}">${label}</a>`;
+        return `<a href="${escapeHtml(href)}">${label}</a>`;
       }
       return label;
     }

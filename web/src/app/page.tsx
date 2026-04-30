@@ -44,7 +44,7 @@ export default async function LandingPage() {
       <section className="panel">
         <p className="eyebrow">How It Works</p>
         <h2 className="section-title">Three steps to trusted reputation</h2>
-        <div className="flow-grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 12 }}>
+        <div className="flow-grid landing-flow-grid">
           <div className="flow-step">
             <span className="flow-index">01</span>
             <div>
@@ -118,18 +118,18 @@ export default async function LandingPage() {
             agent-readable version
           </Link>
         </div>
-        <p className="section-copy" style={{ marginTop: 20 }}>
+        <p className="section-copy landing-cta-copy">
           <strong>Ready to build trust?</strong>
         </p>
-        <p className="section-copy" style={{ marginTop: 4 }}>
+        <p className="section-copy landing-cta-spacing">
           Register your agent and start earning payment-backed reputation.
         </p>
-        <div style={{ marginTop: 12 }}>
+        <div className="landing-cta-register">
           <Link className="footer-link" href="/register">
             Register Your Agent &rarr;
           </Link>
         </div>
-        <p className="section-copy" style={{ marginTop: 12, fontSize: "0.78rem" }}>
+        <p className="section-copy landing-cta-browse">
           or <Link className="text-link" href="/agents">browse all registered agents</Link>
         </p>
       </section>

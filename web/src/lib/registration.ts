@@ -8,9 +8,7 @@ interface AgentProfileInput {
 }
 
 export interface RegistrationConfig {
-  rpcUrl: string
   networkPassphrase: string
-  contractId: string
 }
 
 export interface RegistrationResult {

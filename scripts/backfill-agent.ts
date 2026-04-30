@@ -5,6 +5,7 @@ import { agents } from "../src/indexer/db/schema.js"
 import { sql } from "drizzle-orm"
 import { scValToNative, nativeToScVal, TransactionBuilder, Operation, BASE_FEE } from "@stellar/stellar-sdk"
 import { Keypair } from "@stellar/stellar-sdk"
+import { isValidStellarAddress } from "../src/api/validate.js"
 
 applyEnvFile()
 
@@ -27,6 +28,10 @@ async function main() {
   const address = process.argv[2]
   if (!address) {
     console.error("Usage: npx tsx scripts/backfill-agent.ts <G...address>")
+    process.exit(1)
+  }
+  if (!isValidStellarAddress(address)) {
+    console.error("Invalid Stellar address. Expected format: G... (56 chars, base32)")
     process.exit(1)
   }
 

@@ -234,6 +234,10 @@ h2 {
   font-size: 1.05rem;
 }
 
+.hero-copy-spacing {
+  margin-top: 8px;
+}
+
 .hero-copy-centered {
   max-width: 56ch;
 }
@@ -651,4 +655,41 @@ a.list-row:focus-visible {
 
 .landing-cta .section-copy:first-of-type {
   margin-top: 4px;
+}
+
+.landing-flow-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.landing-cta-copy {
+  margin-top: 20px;
+}
+
+.landing-cta-spacing {
+  margin-top: 4px;
+}
+
+.landing-cta-register {
+  margin-top: 12px;
+}
+
+.landing-cta-browse {
+  margin-top: 12px;
+  font-size: 0.78rem;
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-nav .topbar-copy {
+  margin: 0;
+}
+
+.topbar-nav-link {
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
