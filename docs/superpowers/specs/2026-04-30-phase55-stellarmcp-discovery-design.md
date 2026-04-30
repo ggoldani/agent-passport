@@ -9,7 +9,7 @@
 ## Goal
 
 Expose AgentPassport trust data to AI agents through two mechanisms:
-1. An MCP server with 19 tools (15 contract functions + 4 REST API bridge tools)
+1. An MCP server with 22 tools (18 contract functions + 4 REST API bridge tools)
 2. A comprehensive SKILL.md file for AI agent discovery via the stellarskills convention
 
 ## Approach
@@ -82,6 +82,9 @@ Auto-generated from `contracts/agent-passport/target/wasm32v1-none/release/agent
 - `remove_relayer` — Remove a relayer (admin only)
 - `transfer_admin` — Initiate admin transfer
 - `accept_admin` — Accept admin transfer
+- `cancel_admin_transfer` — Cancel pending admin transfer (admin only)
+
+Note: `init` (contract constructor) is excluded from MCP tools — it was already called during deployment. Total callable functions: 18.
 
 ### API Bridge Tools (Custom)
 
@@ -89,10 +92,17 @@ Wrap the REST API at `AGENTPASSPORT_API_URL`. Provide enriched data not availabl
 
 | Tool | Description | Parameters | API Endpoint |
 |------|-------------|------------|--------------|
-| `agent_search` | Search agents with full-text search and filters | `q` (string), `tags` (string), `minScore` (number), `maxScore` (number), `sortBy` (string: score/interactions/volume/newest/relevance), `limit` (number: 1-50) | `GET /agents` |
+| `agent_search` | Search agents with FTS5 full-text search and filters | `q` (string), `tags` (string), `minScore` (number), `maxScore` (number), `sortBy` (string: score/interactions/volume/newest/relevance), `limit` (number: 1-50) | `GET /agents` |
 | `agent_analytics` | Get analytics for an agent | `address` (string, required), `period` (string: 7d/30d/90d/all) | `GET /agents/:address/stats` |
 | `agent_badge_stats` | Get trust badge data for embedding | `address` (string, required) | `GET /badge-stats/:address` |
 | `agent_trust_check` | Quick trust verification | `address` (string, required), `minScore` (number), `minInteractions` (number) | `GET /trust-check/:address` |
+
+**Response shapes** (mirrors existing API response schemas):
+
+- `agent_search` → `{ data: Agent[], total: number, has_more: boolean }` where Agent includes `owner_address`, `name`, `description`, `tags`, `score`, `verified_interactions_count`, `trust_tier`
+- `agent_analytics` → `{ address, period, volume_over_time: Array<{date, volume}>, counterparty_growth: Array<{date, unique_counterparties}>, score_trajectory: Array<{date, score}>, rating_breakdown: { quality, speed, reliability, communication } each with { avg, count }, summary: { total_volume, total_interactions, unique_counterparties, avg_rating } }`
+- `agent_badge_stats` → `{ address, name, trust_tier, score, verified_interactions_count, total_economic_volume, total_counterparties }`
+- `agent_trust_check` → `{ passed: boolean, reasons: string[], trust_tier, score, verified_interactions_count }`
 
 **Error handling:** If the API is unreachable, tools return a clear MCP tool error: `"AgentPassport API unreachable at {url}. Start the API server or set AGENTPASSPORT_API_URL."`
 
@@ -121,11 +131,6 @@ Wrap the REST API at `AGENTPASSPORT_API_URL`. Provide enriched data not availabl
 
 ## 2. SKILL.md
 
-### Location
-
-- **In this repo:** `docs/skills/agent-passport/SKILL.md`
-- **In stellarskills repo:** `agent-passport/SKILL.md` (via PR)
-
 ### Frontmatter
 
 ```yaml
@@ -136,13 +141,26 @@ when_to_use: Verifying trustworthiness of an AI agent before engaging it, checki
 ---
 ```
 
+Note: The `when_to_use` field is a stellarskills convention used by the root SKILL.md decision tree. It tells agents when to fetch this skill.
+
+### Location
+
+- **In this repo:** `docs/skills/agent-passport/SKILL.md`
+- **In stellarskills repo:** `agent-passport/SKILL.md` (via PR to ggoldani/stellarskills)
+
+### stellarskills Integration
+
+The stellarskills root `SKILL.md` has a skill index table. The PR to stellarskills must:
+1. Add `agent-passport/SKILL.md` file
+2. Update the root `SKILL.md` skill index to include AgentPassport in the relevant category (e.g., under a new "Trust & Reputation" row or within "Smart Contracts")
+
 ### Content Structure
 
 1. **What it is** — 2-3 sentences: on-chain registry, payment-verified trust, Soroban contract
 2. **When to use** — scenarios where agents should consult AgentPassport
 3. **Quick start** — Minimal example: trust-check an agent via MCP tools
 4. **Trust tiers** — Table: New / Active / Trusted with exact thresholds
-5. **MCP tools** — Table of all 19 tools with one-line descriptions
+5. **MCP tools** — Table of all 22 tools (18 contract + 4 API bridge) with one-line descriptions
 6. **Contract functions (read)** — `get_agent`, `list_agents`, `get_rating`, `list_agent_interactions`, `list_agent_ratings`, `get_config`, `get_admin`, `get_relayers`
 7. **Contract functions (write)** — `register_agent`, `register_interaction`, `submit_rating`, `update_profile`, `deregister_agent`, `add_relayer`, `remove_relayer`, `transfer_admin`, `accept_admin`
 8. **API bridge tools** — `agent_search`, `agent_analytics`, `agent_badge_stats`, `agent_trust_check` with parameter tables
@@ -168,7 +186,7 @@ Follow stellarskills golden rules:
 1. AI agent reads stellarskills root SKILL.md
 2. Finds `agent-passport` in the skill index table
 3. Fetches `agent-passport/SKILL.md` from raw.githubusercontent.com
-4. Learns about all 19 MCP tools and workflows
+4. Learns about all 22 MCP tools and workflows
 5. Connects MCP server via client configuration
 6. Uses tools directly: trust-check, search, register, verify
 
@@ -176,14 +194,34 @@ Follow stellarskills golden rules:
 
 ## 4. Dependencies
 
-- `stellarmcp-generate` CLI (from `@ggoldani/stellarmcp` npm package or stellar-mcp repo)
-- Contract WASM at `contracts/agent-passport/target/wasm32v1-none/release/agent_passport.wasm`
-- Rust toolchain with `wasm32v1-none` target (for rebuilding WASM if needed)
+- `@modelcontextprotocol/sdk` — MCP server SDK (required by entry point)
+- `@ggoldani/stellarmcp` — provides `stellarmcp-generate` CLI for contract tool generation
+- Contract WASM at `contracts/agent-passport/target/wasm32v1-none/release/agent_passport.wasm` (pre-built, 46KB, April 21 2026)
+- Rust toolchain with `wasm32v1-none` target (only needed if rebuilding WASM)
 - REST API server running for bridge tools (optional — contract tools work without it)
+
+## 5. Implementation Notes
+
+### Generator Output Spike
+
+The `stellarmcp-generate` output structure and tool naming are assumed based on the stellar-mcp README. **The first implementation step must be a spike:** run the generator against the contract WASM and verify:
+
+1. **Output directory structure** — does it match the assumed `tools/` + `index.ts` layout?
+2. **Tool names** — are they prefixed (e.g., `agent_passport_register_agent`) or clean (e.g., `register_agent`)? The SKILL.md and MCP client configuration must use actual generated names.
+3. **Parameter schemas** — do generated Zod schemas match the contract spec (pagination params, address format, ScVal types)?
+4. **Auth handling** — how do write tools handle signing? Does `safe` mode (unsigned XDR) work for contract-specific tools?
+
+If the output differs from assumptions, the `tools/agent-passport-mcp/src/index.ts` wiring and SKILL.md must adapt accordingly.
+
+### Stellarskills PR
+
+The PR to `ggoldani/stellarskills` must include:
+1. New file: `agent-passport/SKILL.md`
+2. Updated file: `SKILL.md` (root index — add AgentPassport row)
 
 ---
 
-## 5. Out of Scope
+## 6. Out of Scope
 
 - Multi-contract MCP workspaces
 - HTTP/SSE transport for the generated MCP server (stdio only, as per stellar-mcp generator)
@@ -193,12 +231,20 @@ Follow stellarskills golden rules:
 
 ---
 
-## 6. Success Criteria
+## 7. Success Criteria
 
 - [ ] `stellarmcp-generate` produces a working MCP package from the contract WASM
-- [ ] All 15 contract functions are callable as MCP tools
-- [ ] 4 custom API bridge tools work against the live API server
+- [ ] All 18 contract functions are callable as MCP tools (verified via MCP Inspector or manual tool call)
+- [ ] 4 custom API bridge tools work against the live API server (verified with real HTTP calls)
 - [ ] MCP server starts via `node build/src/index.js` with correct env vars
+- [ ] MCP tool names match what's documented in SKILL.md (no naming drift)
 - [ ] SKILL.md follows stellarskills convention and is comprehensive
-- [ ] SKILL.md is submitted to stellarskills repo
+- [ ] SKILL.md is submitted to stellarskills repo (with root index update)
 - [ ] `tsc --noEmit` passes in the MCP package
+
+## 8. Test Strategy
+
+- **Contract tools:** Use MCP Inspector (built into `@modelcontextprotocol/sdk`) to list tools and call read tools against testnet. Verify response shapes.
+- **API bridge tools:** Start API server, call each bridge tool via MCP Inspector against `localhost:3002`. Compare responses to direct API calls (curl).
+- **SKILL.md:** Paste the SKILL.md content into Claude/GPT with "read this and tell me how to trust-check an agent" — verify the agent can follow the instructions.
+- **Typecheck:** `tsc --noEmit` in the MCP package directory.

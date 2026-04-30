@@ -1,4 +1,6 @@
 /docs/
+!docs/superpowers/
+!docs/skills/
 .codex
 .worktrees/
 
