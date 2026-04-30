@@ -15,6 +15,7 @@ import trustCheckRoutes from "./routes/trust-check.js"
 import badgeRoutes from "./routes/badge.js"
 import badgeStatsRoutes from "./routes/badge-stats.js"
 import registerRoutes from "./routes/register.js"
+import prepareRegistrationRoutes from "./routes/prepare-registration.js"
 import { WIDGET_JS } from "./widget.js"
 
 type Variables = { db: BetterSQLite3Database<typeof schema> }
@@ -52,6 +53,7 @@ export function createApiServer(dbPath?: string) {
   app.use("*", rateLimit({ windowMs: 60_000, max: 300, db }))
   app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 60, db }))
   app.use("/register", rateLimit({ windowMs: 60_000, max: 10, db }))
+  app.use("/prepare-registration", rateLimit({ windowMs: 60_000, max: 30, db }))
 
   app.get("/widget.js", (c) => {
     return c.body(WIDGET_JS, 200, {
@@ -65,6 +67,7 @@ export function createApiServer(dbPath?: string) {
   app.route("/badge", badgeRoutes)
   app.route("/badge-stats", badgeStatsRoutes)
   app.route("/register", registerRoutes)
+  app.route("/prepare-registration", prepareRegistrationRoutes)
 
   app.use("/agents/:address/*", async (c, next) => {
     const address = c.req.param("address")

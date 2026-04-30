@@ -1,11 +1,11 @@
-import {
-  BASE_FEE,
-  Operation,
-  TransactionBuilder,
-} from "@stellar/stellar-sdk"
-import { createRpcServer } from "../../../src/lib/rpc.js"
-import { buildMethodArgs } from "../../../src/sdk/scval.js"
-import type { AgentProfileInput } from "../../../src/sdk/types"
+interface AgentProfileInput {
+  name: string
+  description: string
+  tags: string[]
+  service_url: string | null
+  mcp_server_url: string | null
+  payment_endpoint: string | null
+}
 
 export interface RegistrationConfig {
   rpcUrl: string
@@ -46,7 +46,11 @@ const CONTRACT_ERROR_MAP: Record<number, string> = {
 }
 
 export function mapContractError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message: unknown }).message)
+      : String(error)
   const match = message.match(/Error\(Contract,\s*#(\d{1,2})\)/)
   if (match) {
     const code = Number(match[1])
@@ -139,55 +143,35 @@ export function formInputToProfileInput(input: FormInput): AgentProfileInput {
 export async function buildAndPrepareRegistrationTx(
   walletAddress: string,
   profileInput: AgentProfileInput,
-  config: RegistrationConfig,
 ): Promise<string> {
-  const server = createRpcServer(config.rpcUrl)
-
-  const sourceAccount = await server.getAccount(walletAddress)
-
-  const transaction = new TransactionBuilder(sourceAccount, {
-    fee: BASE_FEE,
-    networkPassphrase: config.networkPassphrase,
+  const buildTxRes = await fetch("/api/prepare-registration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ walletAddress, profileInput }),
   })
-    .addOperation(
-      Operation.invokeContractFunction({
-        contract: config.contractId,
-        function: "register_agent",
-        args: buildMethodArgs("register_agent", [walletAddress, profileInput]),
-      }),
-    )
-    .setTimeout(30)
-    .build()
-
-  const preparedTransaction = await server.prepareTransaction(transaction)
-  return preparedTransaction.toXDR()
+  if (!buildTxRes.ok) {
+    const errData = await buildTxRes.json().catch(() => ({ error: "Unknown error" }))
+    const msg = typeof errData === "object" && errData.error ? errData.error : `HTTP ${buildTxRes.status}`
+    throw new Error(msg)
+  }
+  const data = await buildTxRes.json()
+  return data.xdr as string
 }
 
 export async function submitSignedTransaction(
   signedTxXdr: string,
-  config: RegistrationConfig,
 ): Promise<RegistrationResult> {
-  const server = createRpcServer(config.rpcUrl)
-
-  const transaction = TransactionBuilder.fromXDR(signedTxXdr, config.networkPassphrase) as ReturnType<
-    typeof TransactionBuilder.fromXDR
-  >
-
-  const submission = await server.sendTransaction(transaction)
-  if (submission.status === "ERROR") {
-    throw new Error(`Transaction failed: ${submission.status} hash=${submission.hash}`)
-  }
-
-  const response = await server.pollTransaction(submission.hash, {
-    attempts: 20,
+  const submitRes = await fetch("/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ signed_tx_xdr: signedTxXdr }),
   })
-  if (response.status !== "SUCCESS") {
-    throw new Error(
-      `Transaction did not succeed: status=${response.status} hash=${submission.hash}`,
-    )
+  if (!submitRes.ok) {
+    const errBody = await submitRes.text().catch(() => "unknown error")
+    throw new Error(`Failed to submit transaction: ${submitRes.status} ${errBody}`)
   }
-
-  return { txHash: submission.hash }
+  const result = await submitRes.json()
+  return { txHash: (result.tx_hash ?? result.txHash) as string }
 }
 
 export function buildBadgeSnippet(publicApiUrl: string, address: string): string {
@@ -196,7 +180,8 @@ export function buildBadgeSnippet(publicApiUrl: string, address: string): string
   }
   try {
     const url = new URL(publicApiUrl)
-    if (url.protocol !== "https:") {
+    const isLocal = url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+    if (!isLocal && url.protocol !== "https:") {
       throw new Error(`Invalid API URL protocol: ${publicApiUrl}`)
     }
     if (url.search || url.hash) {
@@ -207,5 +192,6 @@ export function buildBadgeSnippet(publicApiUrl: string, address: string): string
     throw new Error(`Invalid API URL for badge snippet: ${publicApiUrl}`)
   }
   const encodedAddress = address.replace(/"/g, "&quot;")
-  return `<script src="${publicApiUrl}/widget.js" data-address="${encodedAddress}"></script>`
+  const encodedUrl = publicApiUrl.replace(/"/g, "&quot;")
+  return `<script src="${encodedUrl}/widget.js" data-address="${encodedAddress}"></script>`
 }
