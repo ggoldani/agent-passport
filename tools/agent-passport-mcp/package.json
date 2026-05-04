@@ -1,0 +1,19 @@
+{
+  "name": "agent-passport-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AgentPassport trust registry — 18 contract tools + 4 REST API bridge tools",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
