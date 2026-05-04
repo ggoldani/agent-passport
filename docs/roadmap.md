@@ -592,22 +592,17 @@ Phase 4 is complete when:
 
 ### 5.5 Trust Query Integration via StellarMCP + AI Discovery Skills
 
-**What:** Use stellar-mcp's `stellarmcp-generate` to auto-generate an MCP package from the agent-passport contract WASM. Create SKILL.md files for AI agent discovery (merged from old 5.8).
+**Status:** DONE. 2026-05-04. 12 commits on `phase5/stellarmcp-discovery`. `tsc --noEmit` zero errors.
+
+**What:** Use stellar-mcp's `stellarmcp-generate` to auto-generate an MCP package from the agent-passport contract WASM. Create SKILL.md for AI agent discovery. Add REST API bridge tools.
 
 **Implementation approach:**
-- Build contract WASM: `cargo build --release --target wasm32v1-none --manifest-path contracts/agent-passport/Cargo.toml`
-- Run `stellarmcp-generate` against the built WASM (from stellar-mcp: `github.com/ggoldani/stellar-mcp`)
-- Test generated tools via stellar-mcp's HTTP transport at `localhost:3005/mcp`
-- Create SKILL.md files following stellarskills convention (`github.com/ggoldani/stellarskills`) for: trust check flow, registration steps, x402 payment + trust verification
-- Optionally: add REST bridge so agent-passport API trust queries (search, analytics, badge-stats) are accessible through MCP
+- Built MCP server at `tools/agent-passport-mcp/` with 22 tools (17 contract + 4 API bridge + 1 health)
+- Generated 17 contract tools from WASM via `stellarmcp-generate` (all prefixed `ap_*`)
+- API bridge tools: agent_search, agent_analytics, agent_badge_stats, agent_trust_check
+- SKILL.md at `docs/skills/agent-passport/SKILL.md` + served at `/SKILL.md` web route
 
-**Why:** Highest-leverage item in Phase 5. Every AI agent on Stellar becomes a potential integrator. MCP tools + SKILL.md files = two discovery mechanisms, one goal. Zero marginal cost per integration.
-
-**Delivers:** Any AI agent can query agent-passport trust data through stellar-mcp. AI agents discover AgentPassport through SKILL.md files.
-
-**Effort:** Small
-
-**Dependencies:** Phase 2 (API), 5.1 (contract pagination changes reflected in WASM)
+**Delivers:** Any AI agent can query agent-passport trust data through MCP. AI agents discover AgentPassport through SKILL.md.
 
 ### 5.6 Testnet → Mainnet Readiness
 
@@ -634,7 +629,7 @@ Phase 4 is complete when:
 ```
 None ────────────────────→ 5.1 Contract hardening ✅ DONE
 5.1 (contract) ──────────→ 5.2 Self-service registration ✅ DONE
-5.1 + Phase 2 ──────────→ 5.5 StellarMCP + AI Discovery Skills (independent of 5.2/5.3)
+5.1 + Phase 2 ──────────→ 5.5 StellarMCP + AI Discovery Skills ✅ DONE
 5.2 (registration) ──────→ 5.3 Landing page + Docs ✅ DONE
 5.4 Onboarding ──────────→ DEFERRED (after real users exist)
 5.6 Mainnet readiness ───→ DEFERRED (after testnet usage)
