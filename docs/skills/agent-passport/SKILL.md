@@ -164,7 +164,7 @@ Quick trust verification against thresholds.
 | `init` | admin, relayer | One-time contract initialization |
 | `register_agent` | name, description, metadata | Registers caller as agent |
 | `register_interaction` | counterparty, amount, tx_hash | Records a verified paid interaction |
-| `submit_rating` | interaction_hash, score, comment | Rate a counterparty (1-5) |
+| `submit_rating` | interaction_hash, score, comment | Rate a counterparty (1-100) |
 | `update_profile` | name, description, metadata | Agent updates own profile |
 | `deregister_agent` | — | Removes agent registration |
 | `add_relayer` | address | Admin-only: add authorized relayer |
