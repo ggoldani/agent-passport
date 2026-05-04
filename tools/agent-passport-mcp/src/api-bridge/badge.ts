@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiFetch, isValidStellarAddress } from "./client.js";
+import { apiFetch, validateStellarAddress } from "./client.js";
 
 export const badgeSchema = z.object({
   address: z.string().describe("Stellar address of the agent (G...)"),
@@ -18,9 +18,7 @@ interface BadgeStatsResponse {
 }
 
 export async function agentBadgeStats(params: BadgeParams): Promise<BadgeStatsResponse> {
-  if (!isValidStellarAddress(params.address)) {
-    throw new Error(`Invalid Stellar address: ${params.address}. Expected format: G... (56 chars)`);
-  }
+  validateStellarAddress(params.address);
 
   return apiFetch<BadgeStatsResponse>(`/badge-stats/${params.address}`);
 }

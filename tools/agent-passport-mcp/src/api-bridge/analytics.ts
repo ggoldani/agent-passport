@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiFetch, isValidStellarAddress } from "./client.js";
+import { apiFetch, validateStellarAddress } from "./client.js";
 
 export const analyticsSchema = z.object({
   address: z.string().describe("Stellar address of the agent (G...)"),
@@ -29,9 +29,7 @@ interface AnalyticsResponse {
 }
 
 export async function agentAnalytics(params: AnalyticsParams): Promise<AnalyticsResponse> {
-  if (!isValidStellarAddress(params.address)) {
-    throw new Error(`Invalid Stellar address: ${params.address}. Expected format: G... (56 chars)`);
-  }
+  validateStellarAddress(params.address);
 
   const query: Record<string, string> = {};
   if (params.period) query.period = params.period;

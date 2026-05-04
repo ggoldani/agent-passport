@@ -18,7 +18,7 @@ export function registerApiBridgeTools(server: McpServer): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text", text: `Error: ${message}` }],
+          content: [{ type: "text", text: `agent_search failed: ${message}` }],
           isError: true,
         };
       }
@@ -38,7 +38,7 @@ export function registerApiBridgeTools(server: McpServer): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text", text: `Error: ${message}` }],
+          content: [{ type: "text", text: `agent_analytics failed: ${message}` }],
           isError: true,
         };
       }
@@ -58,7 +58,7 @@ export function registerApiBridgeTools(server: McpServer): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text", text: `Error: ${message}` }],
+          content: [{ type: "text", text: `agent_badge_stats failed: ${message}` }],
           isError: true,
         };
       }
@@ -78,7 +78,7 @@ export function registerApiBridgeTools(server: McpServer): void {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text", text: `Error: ${message}` }],
+          content: [{ type: "text", text: `agent_trust_check failed: ${message}` }],
           isError: true,
         };
       }

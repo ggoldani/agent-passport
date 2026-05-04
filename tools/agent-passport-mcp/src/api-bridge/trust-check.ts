@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiFetch, isValidStellarAddress } from "./client.js";
+import { apiFetch, validateStellarAddress } from "./client.js";
 
 export const trustCheckSchema = z.object({
   address: z.string().describe("Stellar address of the agent (G...)"),
@@ -18,9 +18,7 @@ interface TrustCheckResponse {
 }
 
 export async function agentTrustCheck(params: TrustCheckParams): Promise<TrustCheckResponse> {
-  if (!isValidStellarAddress(params.address)) {
-    throw new Error(`Invalid Stellar address: ${params.address}. Expected format: G... (56 chars)`);
-  }
+  validateStellarAddress(params.address);
 
   const query: Record<string, string> = {};
   if (params.minScore !== undefined) query.minScore = String(params.minScore);
