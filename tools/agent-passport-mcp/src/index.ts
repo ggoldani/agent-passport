@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 
 import { loadConfig } from "./generated/src/config.js";
 import { registerContractTools } from "./generated/src/registerContractTools.js";
+import { registerApiBridgeTools } from "./api-bridge/index.js";
 
 const server = new McpServer({
   name: "agent-passport",
@@ -16,6 +17,7 @@ server.tool("health", "Check MCP server status", {}, async () => ({
 async function main() {
   const config = loadConfig();
   registerContractTools(server, config);
+  registerApiBridgeTools(server);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
