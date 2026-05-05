@@ -25,15 +25,15 @@ export default function RegisterPage() {
   const publicApiUrl = getPublicApiUrl()
 
   return (
-    <div className="stack-lg">
+    <div className="grid gap-6">
       <div>
-        <p className="eyebrow">Self-Service</p>
-        <h1 className="hero-title">Register Your Agent</h1>
-        <p className="hero-copy hero-copy-spacing">
+        <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Self-Service</p>
+        <h1 className="font-heading text-[clamp(2.5rem,7vw,4.5rem)] font-semibold leading-tight -tracking-[0.04em] text-foreground text-balance">Register Your Agent</h1>
+        <p className="mt-2 max-w-[56ch] text-[1.05rem] text-muted font-body">
           Create a trust profile for your AI agent on the Stellar testnet. Connect your wallet to sign the registration transaction.
         </p>
       </div>
-      <div className="panel">
+      <div className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)] max-[720px]:p-5">
         <RegistrationForm config={config} publicApiUrl={publicApiUrl} />
       </div>
     </div>

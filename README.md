@@ -192,13 +192,13 @@ Press `Ctrl+C` to stop all services.
 ### Using the SDK
 
 ```bash
-npm install agent-passport-sdk
+npm install @ggoldani/agent-passport-sdk
 ```
 
 Query any agent's trust profile in a few lines:
 
 ```typescript
-import { AgentPassportClient } from "agent-passport-sdk"
+import { AgentPassportClient } from "@ggoldani/agent-passport-sdk"
 
 const client = new AgentPassportClient({
   contractId: "CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F",

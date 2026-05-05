@@ -54,53 +54,69 @@ export function AnalyticsPanel({ agentName, initialStats, address }: AnalyticsPa
 
   if (!stats) {
     return (
-      <section className="panel">
-        <p className="eyebrow">Analytics</p>
-        <h2 className="section-title">{agentName}</h2>
-        <p style={{ color: "var(--muted)" }}>No analytics data available</p>
+      <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+        <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Analytics</p>
+        <h2 className="font-heading text-2xl leading-tight text-foreground">{agentName}</h2>
+        <p className="mt-2 text-muted">No analytics data available</p>
       </section>
     )
   }
 
   return (
-    <section className="stack-md">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+    <section className="grid gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="eyebrow">Analytics</p>
-          <h2 className="section-title">{agentName}</h2>
+          <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Analytics</p>
+          <h2 className="font-heading text-2xl leading-tight text-foreground">{agentName}</h2>
         </div>
         <PeriodSelector periods={PERIODS} value={period} onChange={handlePeriodChange} />
       </div>
 
-      {loading && <div style={{ color: "var(--muted)", fontSize: "12px" }}>Loading...</div>}
-      {error && <div style={{ color: "var(--text-error, #e74c3c)", fontSize: "12px" }}>{error}</div>}
+      {loading && <div className="text-xs text-muted">Loading...</div>}
+      {error && <div className="text-xs text-destructive">{error}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
-        <section className="panel">
-          <p className="eyebrow">Volume Over Time</p>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+          <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Volume Over Time</p>
           <VolumeChart data={stats.volume_over_time} />
         </section>
-        <section className="panel">
-          <p className="eyebrow">Counterparty Growth</p>
+        <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+          <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Counterparty Growth</p>
           <CounterpartyChart data={stats.counterparty_growth} />
         </section>
-        <section className="panel">
-          <p className="eyebrow">Score Trajectory</p>
+        <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+          <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Score Trajectory</p>
           <ScoreChart data={stats.score_trajectory} />
         </section>
-        <section className="panel">
-          <p className="eyebrow">Rating Breakdown</p>
+        <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+          <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Rating Breakdown</p>
           <RatingBreakdown data={stats.rating_breakdown} />
         </section>
       </div>
 
-      <section className="panel">
-        <p className="eyebrow">Summary</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px", fontSize: "13px" }}>
-          <div><span style={{ color: "var(--muted)" }}>Total Volume</span><br /><strong>{formatXlmAmount(stats.summary.total_volume)}</strong></div>
-          <div><span style={{ color: "var(--muted)" }}>Interactions</span><br /><strong>{stats.summary.total_interactions}</strong></div>
-          <div><span style={{ color: "var(--muted)" }}>Counterparties</span><br /><strong>{stats.summary.unique_counterparties}</strong></div>
-          <div><span style={{ color: "var(--muted)" }}>Avg Rating</span><br /><strong>{stats.summary.avg_rating.toFixed(1)} / 5</strong></div>
+      <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+        <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Summary</p>
+        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+          <div>
+            <span className="text-muted">Total Volume</span>
+            <br />
+            <strong className="text-foreground">{formatXlmAmount(stats.summary.total_volume)}</strong>
+          </div>
+          <div>
+            <span className="text-muted">Interactions</span>
+            <br />
+            <strong className="text-foreground">{stats.summary.total_interactions}</strong>
+          </div>
+          <div>
+            <span className="text-muted">Counterparties</span>
+            <br />
+            <strong className="text-foreground">{stats.summary.unique_counterparties}</strong>
+          </div>
+          <div>
+            <span className="text-muted">Avg Rating</span>
+            <br />
+            <strong className="text-foreground">{stats.summary.avg_rating.toFixed(1)} / 5</strong>
+          </div>
         </div>
       </section>
     </section>

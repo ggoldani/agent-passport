@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 export function SearchBar() {
@@ -16,12 +16,22 @@ export function SearchBar() {
 
   const updateQuery = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams)
-    if (value.trim()) {
-      params.set("q", value.trim())
+    const normalized = value.trim()
+    if (normalized) {
+      params.set("q", normalized)
     } else {
       params.delete("q")
     }
-    router.push(`?${params.toString()}`)
+    const qs = params.toString()
+    router.push(qs ? `?${qs}` : "/agents")
+  }, [router, searchParams])
+
+  const clearQuery = useCallback(() => {
+    setQuery("")
+    const params = new URLSearchParams(searchParams)
+    params.delete("q")
+    const qs = params.toString()
+    router.push(qs ? `?${qs}` : "/agents")
   }, [router, searchParams])
 
   useEffect(() => {
@@ -32,15 +42,25 @@ export function SearchBar() {
   }, [query, updateQuery])
 
   return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "var(--muted)" }} />
+    <form className="relative" onSubmit={(e) => { e.preventDefault(); updateQuery(query) }}>
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
       <Input
         type="text"
         placeholder="Search agents by name or description..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="pl-10 h-11"
+        className="h-11 pl-10 pr-10"
       />
-    </div>
+      {query ? (
+        <button
+          type="button"
+          onClick={clearQuery}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted transition-colors hover:text-foreground"
+          aria-label="Clear search"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : null}
+    </form>
   )
 }

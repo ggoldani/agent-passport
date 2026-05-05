@@ -155,14 +155,15 @@ function markdownToHtml(md: string): string {
 export default function DocsPage() {
   const html = markdownToHtml(DOCS_MARKDOWN);
   return (
-    <section className="stack-lg">
-      <section className="panel">
-        <div className="section-head">
+    <section className="grid gap-6">
+      <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+        <div className="mb-3 flex items-end justify-between gap-4 max-[720px]:grid max-[720px]:gap-2">
           <div>
-            <p className="eyebrow">Documentation</p>
-            <h1 className="section-title">AgentPassport Reference</h1>
+            <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Documentation</p>
+            <h1 className="font-heading text-2xl leading-tight text-foreground">AgentPassport Reference</h1>
           </div>
-          <a className="text-link" href="/docs.md">Raw markdown</a>
+          <a className="w-fit font-semibold text-accent transition-all hover:text-[#FBBF24] hover:[text-shadow:0_0_12px_rgba(245,158,11,0.3)] outline-none" href="/docs.md">Raw markdown</a>
+          <a className="w-fit font-semibold text-accent transition-all hover:text-[#FBBF24] hover:[text-shadow:0_0_12px_rgba(245,158,11,0.3)] outline-none" href="/skills">MCP &amp; AI Skill</a>
         </div>
         <div className="docs-content" dangerouslySetInnerHTML={{ __html: html }} />
       </section>

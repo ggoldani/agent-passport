@@ -1,0 +1,78 @@
+<h2>Registration Page Layout</h2>
+<p class="subtitle">Dedicated /register route — form-first, then wallet sign on submit</p>
+
+<div class="mockup">
+  <div class="mockup-header">Registration Flow States</div>
+  <div class="mockup-body" style="display:flex;gap:24px;">
+
+    <div style="flex:1;">
+      <h3 style="margin-top:0;">State 1: Form</h3>
+      <div style="border:1px solid #444;border-radius:8px;padding:16px;background:#1a1a2e;">
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">AGENT NAME *</div>
+          <div style="border:1px solid #333;border-radius:4px;padding:8px 12px;color:#ccc;font-size:14px;">My AI Agent</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">DESCRIPTION *</div>
+          <div style="border:1px solid #333;border-radius:4px;padding:8px 12px;color:#ccc;font-size:14px;min-height:60px;">Provides data analysis services...</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">TAGS</div>
+          <div style="border:1px solid #333;border-radius:4px;padding:8px 12px;color:#ccc;font-size:14px;">analytics, data, api</div>
+          <div style="font-size:11px;color:#666;margin-top:2px;">Comma-separated, max 20 tags</div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;margin-bottom:12px;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">SERVICE URL</div>
+            <div style="border:1px solid #333;border-radius:4px;padding:8px 12px;color:#888;font-size:14px;">https://...</div>
+          </div>
+          <div style="flex:1;margin-bottom:12px;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">MCP SERVER URL</div>
+            <div style="border:1px solid #333;border-radius:4px;padding:8px 12px;color:#888;font-size:14px;">https://...</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:16px;">
+          <div style="background:#2563eb;color:white;padding:10px 24px;border-radius:6px;font-weight:600;font-size:14px;">Connect Wallet & Register</div>
+          <div style="border:1px solid #444;color:#aaa;padding:10px 24px;border-radius:6px;font-size:14px;">Cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;">
+      <h3 style="margin-top:0;">State 2: Wallet Signing</h3>
+      <div style="border:1px solid #444;border-radius:8px;padding:24px;background:#1a1a2e;text-align:center;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div style="width:48px;height:48px;border:3px solid #2563eb;border-top-color:transparent;border-radius:50%;margin-bottom:16px;"></div>
+        <div style="font-size:16px;font-weight:600;color:#eee;margin-bottom:8px;">Waiting for wallet signature...</div>
+        <div style="font-size:13px;color:#888;">Review the transaction in your wallet and approve it.</div>
+        <div style="margin-top:16px;padding:8px 16px;border-radius:4px;background:#111;border:1px solid #333;font-size:12px;color:#666;font-family:monospace;">
+          GABCD...XYZ
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:24px;">
+  <div class="mockup-header">State 3: Success — Badge Code</div>
+  <div class="mockup-body">
+    <div style="border:1px solid #22c55e;border-radius:8px;padding:24px;background:#0a2e14;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <div style="width:24px;height:24px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;">✓</div>
+        <div style="font-size:18px;font-weight:600;color:#22c55e;">Registration Successful</div>
+      </div>
+      <div style="font-size:14px;color:#ccc;margin-bottom:16px;">Your agent profile is now live on the Stellar testnet.</div>
+      <div style="display:flex;gap:12px;margin-bottom:20px;">
+        <div style="background:#111;border:1px solid #333;border-radius:6px;padding:10px 16px;font-size:13px;color:#22c55e;">View Profile →</div>
+        <div style="background:#111;border:1px solid #333;border-radius:6px;padding:10px 16px;font-size:13px;color:#ccc;">Register Another</div>
+      </div>
+      <div style="border-top:1px solid #1a3a1a;padding-top:16px;">
+        <div style="font-size:12px;color:#888;text-transform:uppercase;margin-bottom:8px;">Embed Trust Badge</div>
+        <div style="background:#000;border:1px solid #333;border-radius:4px;padding:12px;font-family:monospace;font-size:12px;color:#aaa;word-break:break-all;">
+          &lt;script src="https://api.agentpassport.dev/widget.js" data-address="GABCD...XYZ"&gt;&lt;/script&gt;
+        </div>
+        <div style="font-size:11px;color:#666;margin-top:4px;">Copy and paste this into your website or docs.</div>
+      </div>
+    </div>
+  </div>
+</div>

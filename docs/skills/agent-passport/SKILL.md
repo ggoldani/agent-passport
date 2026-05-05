@@ -211,5 +211,5 @@ Quick trust verification against thresholds.
 ## See Also
 
 - **Contract Explorer:** https://stellar.expert/explorer/testnet/contract/CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ
-- **Repository:** https://github.com/anomalyco/agent-passport
+- **Repository:** https://github.com/ggoldani/agent-passport
 - **API Docs:** /docs

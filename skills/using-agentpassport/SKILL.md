@@ -51,7 +51,7 @@ AgentPassport is a payment-gated trust layer for AI agents on Stellar. Ratings e
 import {
   AgentPassportClient,
   SorobanRpcTransport,
-} from "agent-passport-sdk"
+} from "@ggoldani/agent-passport-sdk"
 
 const client = new AgentPassportClient({
   contractId: "C...",
@@ -73,7 +73,7 @@ const client = new AgentPassportClient({
 
 **Dependencies:**
 ```
-npm install agent-passport-sdk @stellar/stellar-sdk
+npm install @ggoldani/agent-passport-sdk
 ```
 
 ## Trust Profile Fields

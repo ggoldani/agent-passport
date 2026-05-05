@@ -76,9 +76,6 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
         setWalletAddress(null)
       })
 
-      // kitReady means "the kit button is rendered and interactive", not "a wallet is connected".
-      // The kit button itself handles the wallet connection flow. STATE_UPDATED refines
-      // the state when a wallet connects/disconnects.
       if (!cancelled && kitButtonRef.current) setKitReady(true)
     })()
 
@@ -117,12 +114,9 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
       if (abortedRef.current) return
       setState({ status: "connecting" })
 
-      let address = walletAddress
-      if (!address) {
-        const result = await StellarWalletsKit.getAddress()
-        if (abortedRef.current) return
-        address = result.address
-      }
+      const result = await StellarWalletsKit.getAddress()
+      if (abortedRef.current) return
+      const address = result.address
       if (!address) {
         setState({
           status: "error",
@@ -146,9 +140,9 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
 
       setState({ status: "submitting", address })
 
-      const result = await submitSignedTransaction(signedTxXdr)
+      const submitResult = await submitSignedTransaction(signedTxXdr)
       if (abortedRef.current) return
-      setState({ status: "success", txHash: result.txHash, address })
+      setState({ status: "success", txHash: submitResult.txHash, address })
     } catch (error: unknown) {
       if (abortedRef.current) return
       const msg = error instanceof Error ? error.message : typeof error === "object" && error !== null && "message" in error ? String((error as { message: unknown }).message) : String(error)
@@ -167,188 +161,11 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
       const message = mapContractError(error)
       setState({ status: "error", message })
     }
-  }, [config, walletAddress])
-
-  if (state.status === "success") {
-    const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${state.txHash}`
-    const profileUrl = `/agents/${state.address}`
-    const badgeSnippet = buildBadgeSnippet(publicApiUrl, state.address)
-
-    return (
-      <div className="stack-md">
-        <div
-          style={{
-            padding: 16,
-            border: "1px solid var(--border-strong)",
-            borderRadius: 4,
-            background: "rgba(15, 92, 83, 0.06)",
-          }}
-        >
-          <p style={{ fontWeight: 600, color: "var(--accent)", fontSize: "1.1rem", marginBottom: 8 }}>
-            Registration Successful
-          </p>
-          <p className="row-subtle" style={{ marginBottom: 16 }}>
-            Your agent profile is now live on the Stellar testnet.
-          </p>
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <a
-              href={explorerUrl}
-              rel="noreferrer noopener"
-              target="_blank"
-              className="text-link"
-              style={{
-                border: "1px solid var(--border)",
-                padding: "8px 16px",
-                borderRadius: 4,
-                fontSize: "0.88rem",
-              }}
-            >
-              View Transaction
-            </a>
-            <a
-              href={profileUrl}
-              className="text-link"
-              style={{
-                border: "1px solid var(--border)",
-                padding: "8px 16px",
-                borderRadius: 4,
-                fontSize: "0.88rem",
-              }}
-            >
-              View Profile
-            </a>
-            <button
-              onClick={resetForm}
-              style={{
-                border: "1px solid var(--border)",
-                background: "transparent",
-                padding: "8px 16px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: "0.88rem",
-              }}
-            >
-              Register Another
-            </button>
-          </div>
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-            <p className="eyebrow" style={{ marginBottom: 8 }}>
-              Embed Trust Badge
-            </p>
-            <pre
-              style={{
-                background: "rgba(0,0,0,0.03)",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                padding: 12,
-                fontSize: "0.78rem",
-                overflow: "auto",
-                fontFamily: "'Courier New', Courier, monospace",
-              }}
-            >
-              {badgeSnippet}
-            </pre>
-            <p className="row-subtle" style={{ marginTop: 4, fontSize: "0.78rem" }}>
-              Copy and paste this into your website or documentation.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const isBusy = state.status !== "idle"
-
-  if (state.status === "error") {
-    return (
-      <div className="stack-md">
-        <div
-          style={{
-            padding: 16,
-            border: "1px solid #8b3a3a",
-            borderRadius: 4,
-            background: "rgba(163, 66, 57, 0.06)",
-          }}
-        >
-          <p style={{ fontWeight: 600, color: "#7b2e28", fontSize: "1rem", marginBottom: 8 }}>
-            Registration Failed
-          </p>
-          <p className="row-subtle">{state.message}</p>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button
-            onClick={handleSubmit}
-            style={{
-              border: "1px solid var(--border)",
-              background: "transparent",
-              padding: "8px 16px",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
-          >
-            Try Again
-          </button>
-          <button
-            onClick={resetForm}
-            style={{
-              border: "1px solid var(--border)",
-              background: "transparent",
-              padding: "8px 16px",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
-          >
-            Reset Form
-          </button>
-        </div>
-        {renderFormFields()}
-      </div>
-    )
-  }
-
-  return (
-    <div className="stack-md">
-      {renderFormFields()}
-      <div ref={kitButtonRef} />
-      <button
-        onClick={handleSubmit}
-        disabled={!kitReady || isBusy}
-        style={{
-          padding: "10px 24px",
-          border: "1px solid var(--border-strong)",
-          background: isBusy ? "var(--surface-strong)" : "var(--accent)",
-          color: isBusy ? "var(--muted)" : "white",
-          borderRadius: 4,
-          cursor: isBusy ? "not-allowed" : "pointer",
-          fontWeight: 600,
-          fontSize: "0.92rem",
-        }}
-      >
-        {!kitReady
-          ? "Loading wallet kit..."
-          : state.status === "connecting"
-            ? "Connecting wallet..."
-            : state.status === "signing"
-              ? "Waiting for wallet signature..."
-              : state.status === "submitting"
-                ? "Submitting transaction..."
-                : "Connect Wallet & Register"}
-      </button>
-      {(state.status === "signing" || state.status === "submitting") &&
-        "address" in state && (
-          <p
-            className="row-subtle row-mono"
-            style={{ fontSize: "0.78rem", textAlign: "center" }}
-          >
-            {state.address}
-          </p>
-        )}
-    </div>
-  )
+  }, [config])
 
   function renderFormFields() {
     return (
-      <div className="stack-sm">
+      <div className="grid gap-3">
         <FieldGroup
           label="Agent Name"
           fieldId="reg-name"
@@ -378,16 +195,7 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
             maxLength={512}
             disabled={isBusy}
             rows={3}
-            style={{
-              width: "100%",
-              padding: "6px 12px",
-              border: "1px solid var(--border)",
-              borderRadius: 4,
-              background: "transparent",
-              fontFamily: "inherit",
-              fontSize: "0.92rem",
-              resize: "vertical",
-            }}
+            className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </FieldGroup>
         <FieldGroup
@@ -452,6 +260,93 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
       </div>
     )
   }
+
+  if (state.status === "success") {
+    const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${state.txHash}`
+    const profileUrl = `/agents/${state.address}`
+    const badgeSnippet = buildBadgeSnippet(publicApiUrl, state.address)
+
+    return (
+      <div className="grid gap-4">
+        <div className="rounded-md border border-border-strong bg-accent-soft p-4">
+          <p className="mb-2 text-lg font-semibold text-accent">Registration Successful</p>
+          <p className="mb-4 text-sm text-muted">Your agent profile is now live on the Stellar testnet.</p>
+          <div className="mb-4 flex gap-3 max-[720px]:flex-wrap">
+            <a href={explorerUrl} rel="noreferrer noopener" target="_blank" className="inline-flex items-center justify-center rounded-md border border-border-strong bg-transparent px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent hover:bg-surface hover:text-accent">
+              View Transaction
+            </a>
+            <a href={profileUrl} className="inline-flex items-center justify-center rounded-md border border-border-strong bg-transparent px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent hover:bg-surface hover:text-accent">
+              View Profile
+            </a>
+            <button onClick={resetForm} className="inline-flex items-center justify-center rounded-md border border-border-strong bg-transparent px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent hover:bg-surface hover:text-accent">
+              Register Another
+            </button>
+          </div>
+          <div className="border-t border-border pt-4">
+            <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent">Embed Trust Badge</p>
+            <pre className="overflow-auto rounded-md border border-border bg-background/50 p-3 font-mono text-xs text-foreground">
+              {badgeSnippet}
+            </pre>
+            <p className="mt-1 text-xs text-muted">Copy and paste this into your website or documentation.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const isBusy = state.status !== "idle"
+
+  if (state.status === "error") {
+    return (
+      <div className="grid gap-4">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4">
+          <p className="mb-2 text-base font-semibold text-destructive">Registration Failed</p>
+          <p className="text-sm text-muted">{state.message}</p>
+        </div>
+        <div className="flex gap-3 max-[720px]:flex-wrap">
+          <button onClick={handleSubmit} className="inline-flex items-center justify-center rounded-md border border-border-strong bg-transparent px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent hover:bg-surface hover:text-accent">
+            Try Again
+          </button>
+          <button onClick={resetForm} className="inline-flex items-center justify-center rounded-md border border-border-strong bg-transparent px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent hover:bg-surface hover:text-accent">
+            Reset Form
+          </button>
+        </div>
+        {renderFormFields()}
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-4">
+      {renderFormFields()}
+      <div ref={kitButtonRef} />
+      <button
+        onClick={handleSubmit}
+        disabled={!kitReady || isBusy}
+        className={`inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-bold transition-all ${
+          !kitReady || isBusy
+            ? "cursor-not-allowed border border-border-strong bg-surface-strong/70 text-muted opacity-50"
+            : "border-0 bg-gradient-to-r from-accent to-amber-600 text-background hover:-translate-y-px hover:shadow-[0_0_24px_rgba(245,158,11,0.35)]"
+        }`}
+      >
+        {!kitReady
+          ? "Loading wallet kit..."
+          : state.status === "connecting"
+            ? "Connecting wallet..."
+            : state.status === "signing"
+              ? "Waiting for wallet signature..."
+              : state.status === "submitting"
+                ? "Submitting transaction..."
+                : "Connect Wallet & Register"}
+      </button>
+      {(state.status === "signing" || state.status === "submitting") &&
+        "address" in state && (
+          <p className="text-center font-mono text-xs text-muted">
+            {state.address}
+          </p>
+        )}
+    </div>
+  )
 }
 
 function FieldGroup({
@@ -471,27 +366,13 @@ function FieldGroup({
 }) {
   return (
     <div>
-      <label
-        htmlFor={fieldId}
-        style={{
-          display: "block",
-          marginBottom: 4,
-          fontSize: "0.78rem",
-          fontWeight: 600,
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
-          color: "var(--muted)",
-          fontFamily: "'Courier New', Courier, monospace",
-        }}
-      >
+      <label htmlFor={fieldId} className="mb-1 block font-mono text-xs font-semibold uppercase tracking-wide text-muted">
         {label}
         {required ? " *" : ""}
       </label>
       {children}
-      {hint && (
-        <p style={{ marginTop: 2, fontSize: "0.72rem", color: "var(--muted)" }}>{hint}</p>
-      )}
-      {error && <p style={{ marginTop: 2, fontSize: "0.78rem", color: "#7b2e28" }}>{error.message}</p>}
+      {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+      {error && <p className="mt-0.5 text-xs text-destructive">{error.message}</p>}
     </div>
   )
 }

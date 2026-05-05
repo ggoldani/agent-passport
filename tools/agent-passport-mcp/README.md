@@ -1,29 +1,47 @@
-# AgentPassport MCP Server
+# @ggoldani/agent-passport-mcp
 
-MCP server for the AgentPassport trust registry on Stellar. 17 contract tools + 4 REST API bridge tools + health check.
+MCP server for the [AgentPassport](https://github.com/ggoldani/agent-passport) trust registry on Stellar. 18 contract tools + 4 REST API bridge tools + health check.
+
+## Install
+
+```bash
+npm install @ggoldani/agent-passport-mcp
+```
 
 ## Setup
 
-1. Install dependencies:
-   ```bash
-   cd tools/agent-passport-mcp
-   npm install
-   npm run build
-   ```
+Configure your MCP client:
 
-2. Configure your MCP client:
-
-**Cursor / Claude Desktop (.json config):**
+**Cursor / Claude Desktop:**
 ```json
 {
   "mcpServers": {
     "agent-passport": {
       "type": "stdio",
-      "command": "node",
-      "args": ["/absolute/path/to/tools/agent-passport-mcp/build/index.js"],
+      "command": "npx",
+      "args": ["@ggoldani/agent-passport-mcp"],
       "env": {
         "STELLAR_NETWORK": "testnet",
         "STELLAR_CONTRACT_ID": "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
+        "AGENTPASSPORT_API_URL": "http://localhost:3002"
+      }
+    }
+  }
+}
+```
+
+**With write access (admin operations):**
+```json
+{
+  "mcpServers": {
+    "agent-passport": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@ggoldani/agent-passport-mcp"],
+      "env": {
+        "STELLAR_NETWORK": "testnet",
+        "STELLAR_CONTRACT_ID": "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
+        "STELLAR_SECRET_KEY": "S...",
         "AGENTPASSPORT_API_URL": "http://localhost:3002"
       }
     }
@@ -43,8 +61,28 @@ MCP server for the AgentPassport trust registry on Stellar. 17 contract tools + 
 
 ## Tools
 
-### Contract Tools (17)
-Auto-generated from contract WASM via `@ggoldani/stellarmcp`. Read trust profiles, list agents, register, rate, etc. All prefixed with `ap_`.
+### Contract Tools (18)
+Auto-generated from contract WASM via `@ggoldani/stellarmcp`. All prefixed with `ap_`:
+
+| Tool | Description |
+|------|-------------|
+| `ap_get_agent` | Fetch agent profile by address |
+| `ap_list_agents` | Paginated agent list |
+| `ap_get_config` | Contract configuration |
+| `ap_get_relayers` | Authorized relayers |
+| `ap_get_rating` | Rating for an interaction |
+| `ap_list_agent_interactions` | Interaction history |
+| `ap_register_agent` | Register new agent |
+| `ap_update_profile` | Update agent profile |
+| `ap_deregister_agent` | Remove agent |
+| `ap_register_interaction` | Record interaction |
+| `ap_submit_rating` | Rate an interaction (1-100) |
+| `ap_add_relayer` | Authorize relayer |
+| `ap_remove_relayer` | Revoke relayer |
+| `ap_transfer_admin` | Initiate admin transfer |
+| `ap_accept_admin` | Accept admin transfer |
+| `ap_cancel_admin_transfer` | Cancel pending transfer |
+| `ap_init` | Initialize contract |
 
 ### API Bridge Tools (4)
 Wrap the REST API for enriched data:
@@ -55,3 +93,7 @@ Wrap the REST API for enriched data:
 
 ### Health (1)
 - `health` — MCP server status check
+
+## License
+
+MIT

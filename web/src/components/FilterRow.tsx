@@ -38,7 +38,7 @@ export function FilterRow() {
   )
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+    <div className="flex flex-wrap items-center gap-3">
       <Select value={currentSort} onValueChange={(v) => updateParam("sortBy", v)}>
         <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="Sort by" />

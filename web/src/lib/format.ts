@@ -2,14 +2,14 @@ const STROOPS_PER_XLM = 10_000_000n;
 
 export function getScoreToneClass(score: number): string {
   if (score >= 80) {
-    return "score-chip-high";
+    return "border-accent/30 bg-accent/15 text-accent shadow-[0_0_10px_rgba(245,158,11,0.15)]";
   }
 
   if (score >= 40) {
-    return "score-chip-medium";
+    return "border-amber-500/30 bg-amber-500/12 text-amber-300";
   }
 
-  return "score-chip-low";
+  return "border-red-500/30 bg-red-500/12 text-red-400";
 }
 
 export function formatAddressCompact(address: string): string {

@@ -1,0 +1,129 @@
+<h2>Landing Page Layout</h2>
+<p class="subtitle">Two structural approaches for the AgentPassport landing page. Both use the same sections (hero, how-it-works, leaderboard, tiers, CTA) but differ in visual rhythm and information density.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option A: Stacked Panels</div>
+        <div class="mockup-body" style="padding: 20px; display: grid; gap: 16px;">
+          <div style="padding: 32px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb; text-align: center;">
+            <p style="font-size: 0.7rem; color: #0f5c53; text-transform: uppercase; letter-spacing: 2px;">Hero Section</p>
+            <p style="font-size: 1.4rem; font-weight: 700; margin-top: 8px;">Trust Registry for AI Agents</p>
+            <p style="font-size: 0.85rem; color: #655c52; margin-top: 4px;">Payment-backed reputation on Stellar</p>
+            <div style="margin-top: 12px; display: flex; gap: 6px; justify-content: center;">
+              <span style="padding: 4px 8px; border: 1px solid #999; font-size: 0.7rem;">Why Stellar</span>
+              <span style="padding: 4px 8px; border: 1px solid #999; font-size: 0.7rem;">On-chain</span>
+              <span style="padding: 4px 8px; border: 1px solid #999; font-size: 0.7rem;">Payment-backed</span>
+            </div>
+            <button class="mock-button" style="margin-top: 16px;">Register Your Agent</button>
+          </div>
+
+          <div style="padding: 16px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb;">
+            <p style="font-size: 0.7rem; color: #0f5c53; text-transform: uppercase; letter-spacing: 2px;">How It Works</p>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
+              <div style="padding: 10px; border: 1px solid #bbb; border-radius: 4px; text-align: center;">
+                <p style="font-weight: 700; font-size: 0.8rem;">01 Register</p>
+                <p style="font-size: 0.7rem; color: #655c52;">On-chain identity</p>
+              </div>
+              <div style="padding: 10px; border: 1px solid #bbb; border-radius: 4px; text-align: center;">
+                <p style="font-weight: 700; font-size: 0.8rem;">02 Interact</p>
+                <p style="font-size: 0.7rem; color: #655c52;">Paid services</p>
+              </div>
+              <div style="padding: 10px; border: 1px solid #bbb; border-radius: 4px; text-align: center;">
+                <p style="font-weight: 700; font-size: 0.8rem;">03 Build Trust</p>
+                <p style="font-size: 0.7rem; color: #655c52;">Score & reputation</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 16px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb;">
+            <p style="font-size: 0.7rem; color: #0f5c53; text-transform: uppercase; letter-spacing: 2px;">Top Agents</p>
+            <div style="display: grid; gap: 6px; margin-top: 8px;">
+              <div style="padding: 8px 12px; border: 1px solid #bbb; border-radius: 4px; display: flex; justify-content: space-between; font-size: 0.75rem;">
+                <span><strong>#01</strong> Agent Alpha</span><span>Score 92</span>
+              </div>
+              <div style="padding: 8px 12px; border: 1px solid #bbb; border-radius: 4px; display: flex; justify-content: space-between; font-size: 0.75rem;">
+                <span><strong>#02</strong> Agent Beta</span><span>Score 85</span>
+              </div>
+              <div style="padding: 8px 12px; border: 1px solid #bbb; border-radius: 4px; display: flex; justify-content: space-between; font-size: 0.75rem;">
+                <span><strong>#03</strong> Agent Gamma</span><span>Score 78</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 16px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            <div style="text-align: center; padding: 10px; border: 1px solid #bbb; border-radius: 4px;">
+              <p style="font-size: 0.7rem; color: #655c52;">New</p>
+              <p style="font-size: 0.75rem;">0 interactions</p>
+            </div>
+            <div style="text-align: center; padding: 10px; border: 1px solid #bbb; border-radius: 4px;">
+              <p style="font-size: 0.7rem; color: #2563eb;">Active</p>
+              <p style="font-size: 0.75rem;">3+ interactions</p>
+            </div>
+            <div style="text-align: center; padding: 10px; border: 1px solid #bbb; border-radius: 4px;">
+              <p style="font-size: 0.7rem; color: #16a34a;">Trusted</p>
+              <p style="font-size: 0.75rem;">Score 40+</p>
+            </div>
+          </div>
+
+          <div style="padding: 16px; border: 1px solid #0f5c53; border-radius: 6px; background: rgba(15,92,83,0.05); text-align: center;">
+            <button class="mock-button">Register Your Agent &rarr;</button>
+            <p style="font-size: 0.7rem; color: #655c52; margin-top: 8px;">Or browse all agents</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Stacked Panels (Recommended)</h3>
+      <p>Each section is a full-width panel card stacked vertically. Matches the existing hero-card/panel pattern. Clean, consistent, readable. Scrollable narrative. Uses <code>.stack-lg</code> to space sections evenly.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">Option B: Hero + Two-Column Grid</div>
+        <div class="mockup-body" style="padding: 20px; display: grid; gap: 16px;">
+          <div style="padding: 32px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb;">
+            <p style="font-size: 0.7rem; color: #0f5c53; text-transform: uppercase; letter-spacing: 2px;">Hero Section</p>
+            <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-top: 10px;">
+              <div>
+                <p style="font-size: 1.4rem; font-weight: 700;">Trust Registry for AI Agents</p>
+                <p style="font-size: 0.85rem; color: #655c52; margin-top: 4px;">Payment-backed reputation on Stellar</p>
+                <button class="mock-button" style="margin-top: 12px;">Register Your Agent</button>
+              </div>
+              <div style="border: 1px dashed #bbb; border-radius: 4px; padding: 10px; font-size: 0.7rem; color: #655c52; text-align: center;">
+                Live Leaderboard<br>Top 5 agents<br>with scores
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="padding: 16px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb;">
+              <p style="font-size: 0.7rem; color: #0f5c53; text-transform: uppercase; letter-spacing: 2px;">How It Works</p>
+              <div style="display: grid; gap: 8px; margin-top: 10px;">
+                <div style="padding: 8px; border: 1px solid #bbb; border-radius: 4px; font-size: 0.75rem;"><strong>01</strong> Register &rarr; <strong>02</strong> Interact &rarr; <strong>03</strong> Build Trust</div>
+              </div>
+            </div>
+            <div style="padding: 16px; border: 1px solid #999; border-radius: 6px; background: #f8f4eb;">
+              <p style="font-size: 0.7rem; color: #0f5c53; text-transform: uppercase; letter-spacing: 2px;">Trust Tiers</p>
+              <div style="display: grid; gap: 6px; margin-top: 10px;">
+                <div style="padding: 6px; border: 1px solid #bbb; border-radius: 4px; font-size: 0.75rem;"><strong>New</strong> &middot; <strong>Active</strong> &middot; <strong>Trusted</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 16px; border: 1px solid #0f5c53; border-radius: 6px; background: rgba(15,92,83,0.05); text-align: center;">
+            <button class="mock-button">Register Your Agent &rarr;</button>
+            <p style="font-size: 0.7rem; color: #655c52; margin-top: 8px;">Or browse all agents</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Hero + Two-Column Grid</h3>
+      <p>Hero with inline leaderboard preview, then a two-column grid for how-it-works + tiers. More compact, fits more content above the fold. Uses the existing <code>.hero-grid</code> two-column pattern. Higher information density.</p>
+    </div>
+  </div>
+</div>

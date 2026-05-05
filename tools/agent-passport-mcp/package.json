@@ -1,13 +1,30 @@
 {
-  "name": "agent-passport-mcp",
+  "name": "@ggoldani/agent-passport-mcp",
   "version": "0.1.0",
   "description": "MCP server for AgentPassport trust registry — 18 contract tools + 4 REST API bridge tools",
   "type": "module",
   "main": "build/index.js",
+  "bin": {
+    "agent-passport-mcp": "build/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./build/index.js"
+    }
+  },
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
@@ -18,5 +35,21 @@
     "@ggoldani/stellarmcp": "^0.1.7",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "stellar",
+    "soroban",
+    "agent",
+    "trust",
+    "reputation",
+    "agent-passport",
+    "model-context-protocol"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ggoldani/agent-passport",
+    "directory": "tools/agent-passport-mcp"
   }
 }

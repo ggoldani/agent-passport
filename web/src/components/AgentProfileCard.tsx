@@ -1,87 +1,88 @@
-import { formatUtcTimestamp, formatXlmAmount, getScoreToneClass } from "../lib/format";
+import { formatUtcTimestamp, formatXlmAmount } from "../lib/format";
 import type { AgentDashboardDetail } from "../types";
 
 type AgentProfileCardProps = {
   agent: AgentDashboardDetail["agent"];
 };
 
-function formatLastInteraction(timestamp: string | null): string {
-  return formatUtcTimestamp(timestamp);
-}
-
 function formatOptionalUrl(url: string | null): string {
   return url ?? "Not provided";
 }
 
 export function AgentProfileCard({ agent }: AgentProfileCardProps) {
+  const scoreToneClass =
+    agent.score >= 80
+      ? "border-accent/30 bg-accent/15 text-accent"
+      : agent.score >= 40
+        ? "border-amber-500/30 bg-amber-500/12 text-amber-300"
+        : agent.score > 0
+          ? "border-red-500/30 bg-red-500/12 text-red-400"
+          : "border-border bg-surface text-muted";
+
   return (
-    <section className="panel stack-md">
-      <div className="registry-head stack-sm">
-        <div className="record-stamp">Registry record</div>
-        <p className="eyebrow">Agent profile</p>
-        <h1 className="section-title">{agent.name}</h1>
-        <p className="section-copy">{agent.description || "No description provided."}</p>
-      </div>
+    <section className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+      <div className="grid gap-4">
+        <div>
+          <div className="inline-flex rounded border border-accent/30 bg-accent/10 px-2 py-1 text-[0.74rem] font-bold uppercase tracking-[0.08em] text-accent">
+            Registry record
+          </div>
+          <p className="mt-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Agent profile</p>
+          <h1 className="font-heading text-3xl font-semibold leading-tight text-foreground">{agent.name}</h1>
+          <p className="mt-2 text-muted">{agent.description || "No description provided."}</p>
+        </div>
 
-      <div className="stack-sm">
-        <p>
-          <strong>Owner address</strong>
-        </p>
-        <p className="row-subtle row-mono">{agent.ownerAddress}</p>
-      </div>
+        <div className="grid gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Owner address</p>
+            <p className="mt-1 break-all font-mono text-sm text-muted">{agent.ownerAddress}</p>
+          </div>
 
-      <div className="stack-sm">
-        <p>
-          <strong>Tags</strong>
-        </p>
-        <p className="section-copy">
-          {agent.tags.length === 0 ? "No tags provided." : agent.tags.join(" · ")}
-        </p>
-      </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Tags</p>
+            <p className="mt-1 text-sm text-muted">{agent.tags.length === 0 ? "No tags provided." : agent.tags.join(" · ")}</p>
+          </div>
 
-      <div className="stack-sm">
-        <p>
-          <strong>Service URL</strong>
-        </p>
-        <p className="section-copy">{formatOptionalUrl(agent.serviceUrl)}</p>
-        <p>
-          <strong>MCP server URL</strong>
-        </p>
-        <p className="section-copy">{formatOptionalUrl(agent.mcpServerUrl)}</p>
-        <p>
-          <strong>Payment endpoint</strong>
-        </p>
-        <p className="section-copy">{formatOptionalUrl(agent.paymentEndpoint)}</p>
-      </div>
+          <div className="grid gap-2">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Service URL</p>
+              <p className="mt-1 text-sm text-muted">{formatOptionalUrl(agent.serviceUrl)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">MCP server URL</p>
+              <p className="mt-1 text-sm text-muted">{formatOptionalUrl(agent.mcpServerUrl)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Payment endpoint</p>
+              <p className="mt-1 text-sm text-muted">{formatOptionalUrl(agent.paymentEndpoint)}</p>
+            </div>
+          </div>
 
-      <div className="stack-sm">
-        <p>
-          <strong>Current trust metrics</strong>
-        </p>
-        <ul className="list-reset stack-sm metrics-grid">
-          <li className="list-row">
-            <span>Score</span>
-            <span className={`metric-chip score-chip ${getScoreToneClass(agent.score)}`}>
-              {agent.score}
-            </span>
-          </li>
-          <li className="list-row">
-            <span>Verified interactions</span>
-            <span className="metric-chip">{agent.verifiedInteractionsCount}</span>
-          </li>
-          <li className="list-row">
-            <span>Total economic volume</span>
-            <span className="metric-chip">{formatXlmAmount(agent.totalEconomicVolume)}</span>
-          </li>
-          <li className="list-row">
-            <span>Unique counterparties</span>
-            <span className="metric-chip">{agent.uniqueCounterpartiesCount}</span>
-          </li>
-          <li className="list-row">
-            <span>Last interaction</span>
-            <span className="metric-chip">{formatLastInteraction(agent.lastInteractionTimestamp)}</span>
-          </li>
-        </ul>
+          <div className="grid gap-2">
+            <p className="text-sm font-semibold text-foreground">Current trust metrics</p>
+            <ul className="grid gap-2 p-0 list-none">
+              <li className="flex items-center justify-between rounded border border-border bg-surface/50 px-4 py-3">
+                <span>Score</span>
+                <span className={`inline-flex rounded-full border px-3 py-1 font-mono text-sm font-bold tracking-wide ${scoreToneClass}`}>{agent.score}</span>
+              </li>
+              <li className="flex items-center justify-between rounded border border-border bg-surface/50 px-4 py-3">
+                <span>Verified interactions</span>
+                <span className="inline-flex rounded-full border border-border bg-surface px-3 py-1 font-mono text-sm font-bold tracking-wide text-foreground">{agent.verifiedInteractionsCount}</span>
+              </li>
+              <li className="flex items-center justify-between rounded border border-border bg-surface/50 px-4 py-3">
+                <span>Total economic volume</span>
+                <span className="inline-flex rounded-full border border-border bg-surface px-3 py-1 font-mono text-sm font-bold tracking-wide text-foreground">{formatXlmAmount(agent.totalEconomicVolume)}</span>
+              </li>
+              <li className="flex items-center justify-between rounded border border-border bg-surface/50 px-4 py-3">
+                <span>Unique counterparties</span>
+                <span className="inline-flex rounded-full border border-border bg-surface px-3 py-1 font-mono text-sm font-bold tracking-wide text-foreground">{agent.uniqueCounterpartiesCount}</span>
+              </li>
+              <li className="flex items-center justify-between rounded border border-border bg-surface/50 px-4 py-3">
+                <span>Last interaction</span>
+                <span className="inline-flex rounded-full border border-border bg-surface px-3 py-1 font-mono text-sm font-bold tracking-wide text-foreground">{formatUtcTimestamp(agent.lastInteractionTimestamp)}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
   );

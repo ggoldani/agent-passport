@@ -1,5 +1,4 @@
-// TODO(I6): Track stellar-sdk updates for axios CVE fixes (GHSA-3p68-rc4w-qgx5, GHSA-fvcv-3m26-pcqx).
-// HTTPS enforcement below mitigates the primary risk. Revisit when stellar-sdk v16+ drops.
+import { Server } from "@stellar/stellar-sdk/rpc"
 import {
   BASE_FEE,
   Keypair,
@@ -7,7 +6,6 @@ import {
   scValToNative,
   TransactionBuilder,
 } from "@stellar/stellar-sdk"
-import { createRpcServer } from "../lib/rpc.js"
 
 import { buildMethodArgs } from "./scval.js"
 import type {
@@ -26,6 +24,14 @@ export interface SorobanRpcTransportConfig {
 }
 
 const DEFAULT_TIMEOUT_SECONDS = 30
+
+function createRpcServer(rpcUrl: string): Server {
+  const isLocal = rpcUrl.startsWith("http://localhost") || rpcUrl.startsWith("http://127.0.0.1")
+  if (!isLocal && !rpcUrl.startsWith("https://")) {
+    throw new Error("RPC URL must use HTTPS in production")
+  }
+  return new Server(rpcUrl, { allowHttp: isLocal })
+}
 
 function bytesNToHex(value: unknown): unknown {
   if (value === null || value === undefined) return value

@@ -9,7 +9,7 @@ interface VolumeChartProps {
 
 export function VolumeChart({ data }: VolumeChartProps) {
   if (data.length === 0) {
-    return <div style={{ padding: "20px", color: "var(--text-tertiary)" }}>No volume data for this period</div>
+    return <div className="p-5 text-muted-foreground">No volume data for this period</div>
   }
 
   const xlmData = data.map(d => ({ date: d.date, volume: Number(Number(d.volume) / 1e7) }))
@@ -17,11 +17,11 @@ export function VolumeChart({ data }: VolumeChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={xlmData}>
-        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--text-tertiary)" />
-        <YAxis tick={{ fontSize: 10 }} stroke="var(--text-tertiary)" />
+        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted)" />
+        <YAxis tick={{ fontSize: 10 }} stroke="var(--muted)" />
         <Tooltip
-          contentStyle={{ background: "var(--bg-primary)", border: "1px solid var(--text-tertiary)", borderRadius: "4px", fontSize: "12px" }}
-          labelStyle={{ color: "var(--text-primary)" }}
+          contentStyle={{ background: "var(--surface)", border: "1px solid var(--muted)", borderRadius: "4px", fontSize: "12px" }}
+          labelStyle={{ color: "var(--foreground)" }}
           formatter={(value: unknown) => [`${Number(value).toFixed(2)} XLM`, "Volume"]}
         />
         <Area type="monotone" dataKey="volume" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.15} />
