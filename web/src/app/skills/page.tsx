@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { escapeHtml } from "@/lib/markdown";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Agent Skill — AgentPassport",
+  description: "Machine-readable AgentPassport skill for AI discovery and integration",
+  path: "/skills",
+});
 
 const SKILL_MD = readFileSync(join(process.cwd(), "..", "docs", "skills", "agent-passport", "SKILL.md"), "utf-8");
 

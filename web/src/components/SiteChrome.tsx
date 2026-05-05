@@ -14,6 +14,8 @@ const footerItems = [
   { href: "/docs", label: "Docs" },
   { href: "/register", label: "Register agent" },
   { href: "/skills", label: "MCP & AI Skill" },
+  { href: "/llms.txt", label: "LLMs.txt" },
+  { href: "/sitemap.xml", label: "Sitemap" },
 ]
 
 function isActive(pathname: string, href: string): boolean {

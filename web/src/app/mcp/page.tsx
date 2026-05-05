@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { escapeHtml } from "@/lib/markdown";
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "MCP Server Setup — AgentPassport",
+  description: "Setup and integrate the AgentPassport MCP server",
+  path: "/mcp",
+});
 
 const MCP_README = readFileSync(join(process.cwd(), "..", "tools", "agent-passport-mcp", "README.md"), "utf-8");
 

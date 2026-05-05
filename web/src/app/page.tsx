@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LeaderboardTable } from "../components/LeaderboardTable";
 import { TrustTierBadge } from "../components/TrustTierBadge";
 import { listLeaderboardAgents } from "../lib/api";
+import { buildPageMetadata } from "../lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Payment-backed reputation for AI agents — AgentPassport",
+  description: "Payment-backed trust registry for AI agents on Stellar",
+  path: "/",
+});
 
 export default async function LandingPage() {
   const allAgents = await listLeaderboardAgents();

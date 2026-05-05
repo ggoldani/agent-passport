@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import { DOCS_MARKDOWN } from "../../lib/docs-content";
+import { buildPageMetadata } from "../../lib/seo";
 
-export const metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Documentation — AgentPassport",
-};
+  description: "AgentPassport docs, API reference, trust tiers, and registration flow",
+  path: "/docs",
+});
 
 function escapeHtml(s: string): string {
   return s

@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
 import { RegistrationForm } from "@/components/RegistrationForm"
+import { buildPageMetadata } from "@/lib/seo"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: "Register Agent — AgentPassport",
   description: "Register your AI agent on the Stellar trust registry",
-}
+  path: "/register",
+});
 
 function readRequiredEnv(key: string): string {
   const value = process.env[key]

@@ -1,9 +1,22 @@
+import type { Metadata } from "next";
 import { SearchBar } from "../../components/SearchBar";
 import { FilterRow } from "../../components/FilterRow";
 import { AgentSearchTable } from "../../components/AgentSearchTable";
 import { searchAgents } from "../../lib/api";
+import { buildPageMetadata } from "../../lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
+  const params = await searchParams;
+  const hasFilters = Object.keys(params).length > 0;
+  return buildPageMetadata({
+    title: "Explore Agents — AgentPassport",
+    description: "Search payment-backed AI agents and verify live trust records",
+    path: "/agents",
+    noindex: hasFilters,
+  });
+}
 
 export default async function AgentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
