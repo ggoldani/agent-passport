@@ -14,8 +14,6 @@ const footerItems = [
   { href: "/docs", label: "Docs" },
   { href: "/register", label: "Register agent" },
   { href: "/skills", label: "MCP & AI Skill" },
-  { href: "/llms.txt", label: "LLMs.txt" },
-  { href: "/sitemap.xml", label: "Sitemap" },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -35,17 +33,10 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen px-5 py-8 pb-12">
       <header className="mx-auto mb-7 flex max-w-[1040px] items-baseline justify-between gap-4 rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 px-5 py-[18px] pb-4 shadow-[0_24px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl max-[720px]:grid max-[720px]:gap-3 max-[720px]:px-4">
-        <div className="flex items-center gap-3.5 max-[720px]:items-start">
-          <div className="grid h-11 w-11 place-items-center rounded-full border border-accent bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-sm font-bold tracking-wider text-accent shadow-[0_0_16px_rgba(245,158,11,0.15)] font-heading uppercase" aria-hidden="true">
-            <span>AP</span>
-          </div>
-          <div className="grid gap-1">
-            <p className="font-mono text-xs font-bold tracking-wider uppercase text-muted">Trust Registry / Stellar Testnet</p>
-            <Link className="font-heading text-lg font-bold text-foreground" href="/">
-              AgentPassport
-            </Link>
-          </div>
-        </div>
+        <Link className="flex items-center shrink-0" href="/" aria-label="AgentPassport home">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-transparent.png" alt="AgentPassport" height={36} className="h-9 w-auto max-[480px]:h-7" />
+        </Link>
         <div className="flex items-center gap-4 max-[720px]:flex-wrap max-[720px]:gap-2">
           <p className="m-0 text-muted max-[720px]:w-full">Public reputation records derived from verified paid interactions.</p>
           {navItems.map((item) => (

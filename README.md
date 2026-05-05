@@ -1,340 +1,181 @@
+<div align="center">
+
 # AgentPassport
 
-**Payment-backed trust layer for AI agents on Stellar**
+**Stop paying agents you can't trust.**
 
-AgentPassport lets agents and services on Stellar build a public reputation from real paid interactions, so the ecosystem can move from blind trust to verifiable trust.
+[![npm version](https://img.shields.io/npm/v/@ggoldani/agent-passport-sdk)](https://www.npmjs.com/package/@ggoldani/agent-passport-sdk)
+[![npm version](https://img.shields.io/npm/v/@ggoldani/agent-passport-mcp)](https://www.npmjs.com/package/@ggoldani/agent-passport-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-It answers a simple question that the agent economy still struggles with:
+[**Try it live**](https://agent-passport.vercel.app) &middot; [SKILL.md](https://agent-passport.vercel.app/SKILL.md)
 
-> Can I trust this provider before I pay it?
+</div>
 
-## Why this exists
+---
 
-Stellar already has the payment rails for the agent economy: x402, fast settlement, low fees, and smart accounts.
+AI agents can already pay each other on Stellar. What they can't do is answer one question before sending money:
 
-What it still lacks is trust.
+> **Has this provider actually delivered value to anyone before?**
 
-An agent can already pay on Stellar. What it still cannot reliably answer is:
-- Who is this agent?
-- Has it completed real paid work before?
-- How many counterparties have trusted it?
-- What economic history backs its reputation?
-- Should I pay this provider at all?
+AgentPassport fixes this by turning verified paid interactions into public trust profiles. **Ratings are only unlocked by verified payments** — no free reviews, no self-promotion, no gaming the system with fake accounts.
 
-AgentPassport solves this by turning verified paid interactions into a queryable public trust profile that agents and developers can check before and after payment.
+## Why payment-gated reputation
 
-## Why this matters now
+Free reputation systems (reviews, upvotes) fail because gaming them costs nothing. AgentPassport ties ratings to actual economic transactions:
 
-x402 solves payment execution.
-It does not solve counterparty selection.
-
-If agents are going to buy services programmatically, they need a simple way to evaluate who has real economic history behind them before sending money.
-
-AgentPassport makes that decision legible by exposing a public trust profile backed by verified paid interactions.
-
-Providers use it to build public trust from real paid work.
-Consumers use it to decide which providers are worth paying.
-
-## How it works
-
-At a high level:
-- a provider registers a public identity on-chain
-- a consumer checks that provider's trust profile
-- the consumer pays via x402
-- AgentPassport verifies the paid interaction and updates the provider's public trust state
-- the consumer can rate the provider only after that verified interaction exists
-
-## What AgentPassport does
-
-- lets providers register an on-chain identity on Soroban
-- records verified paid interactions
-- allows ratings only after verified payment-backed interactions
-- helps consumers query trust before payment and helps providers prove trust after delivery
-- exposes a public trust profile with:
-  - score
-  - verified interactions count
-  - total economic volume
-  - unique counterparties count
-  - recent activity
-- provides a reusable trust primitive for future Stellar marketplaces, directories, MCP services, and agent networks
-
-## Canonical demo
-
-The hackathon demo uses one concrete flow:
-
-1. **StellarIntel** (a paid Stellar intelligence provider) registers on AgentPassport
-2. A consumer checks StellarIntel's public trust profile before paying
-3. The trust profile shows score, verified interactions, economic volume, and counterparties
-4. The consumer decides to use StellarIntel and pays via x402 on Stellar
-5. A relayer verifies the payment and registers the interaction on Soroban
-6. The consumer submits a rating
-7. StellarIntel's public trust profile updates
-
-This is the core idea:
-
-> **x402 gives Stellar agents the ability to pay. AgentPassport gives them the ability to trust.**
-
-And this is the non-negotiable rule behind the system:
-
-> **Ratings are not free-form reviews. They are unlocked only by verified paid interactions.**
-
-## Payment-Gated Reputation
-
-The core idea: **if reputation is free, reputation is meaningless.**
-
-AgentPassport enforces a simple rule — ratings exist only after a verified x402 payment. No free reviews. No self-promotion. No social gaming.
-
-| | Free Reputation | Payment-Gated Reputation |
+| | Free Reputation | AgentPassport |
 |---|---|---|
 | Rating source | Any interaction | Verified x402 payment |
 | Gaming risk | Sybil attacks, fake reviews | Economically costly to fake |
 | Verification | Manual, optional | Automatic, post-settlement |
 | Trust signal | Social feedback | Economic history |
 
-## Scope of the MVP
+## Trust tiers
 
-### Included
-- Soroban-based identity registry
-- verified interaction registration
-- rating-based reputation
-- trusted relayer flow
-- CLI surfaces for register/query/list/rate/interactions
-- local dashboard for demo
-- minimal provider service (**StellarIntel**) for the end-to-end paid interaction demo
-- deterministic account analysis using live Stellar data via a local companion service
-- end-to-end demo script that runs the trust flow on Stellar testnet
+Scores are computed from verified interactions (count, volume, counterparty diversity, recency). Higher scores reflect more economic activity across more unique partners.
 
-### Not included
-- decentralized attestation network
-- dispute system
-- staking / slashing
-- MPP support in MVP
-- marketplace layer
-- tokenomics
-
-## Project structure
-
-```text
-agent-passport/
-├── contracts/          # Soroban smart contract (read-only)
-├── scripts/            # Provider, worker, indexer, API entry points
-├── src/
-│   ├── sdk/            # AgentPassportClient + transports
-│   ├── indexer/        # Drizzle ORM indexer (events, handlers, sync)
-│   ├── api/            # REST API (Hono routes, middleware)
-│   ├── cli/            # CLI commands
-│   ├── provider/       # StellarIntel x402 provider
-│   └── lib/            # Shared utilities (env loader)
-├── web/                # Next.js dashboard
-├── docs/               # Roadmap, plans, references
-└── README.md
-```
-
-## What's implemented now
-
-### Phase 1: Core Loop Completion (DONE)
-- SDK with barrel export, built-in SorobanRpcTransport, rich rating types, TrustApiTransport
-- CLI with 6 commands: `agent_register`, `agent_query`, `agent_list`, `agent_rate`, `agent_interactions`, `trust_check`
-- Self-serve provider registration via CLI
-- Enhanced ratings with structured dimensions (quality, speed, reliability, communication)
-- Hono/x402 provider (**StellarIntel**) with one paid `POST /analyze-account` route
-- Next.js dashboard with live leaderboard and live agent detail pages
-- Demo script that exercises the full trust loop on Stellar testnet
-
-### Phase 2: Query Infrastructure (DONE)
-- Drizzle ORM + SQLite event indexer with XDR decoding
-- Historical sync and long-running poll mode
-- Public REST API (Hono) with agents, interactions, ratings, search, health endpoints
-- Token-bucket rate limiting (300/min global, 60/min search)
-- SDK TrustApiTransport for instant reads via API
-- Dashboard migrated to API-first with RPC fallback, N+1 eliminated
-
-### What was verified
-- `tsc --noEmit` zero errors
-- Holistic code review passed (all fixes applied)
-- Security review passed (safe for testnet)
-- Web3 security review passed (medium risk for mainnet — known architectural items for future phases)
-- All CLI commands verified on Stellar testnet
-- `npm run demo` end-to-end passes
-
-Demo contract on Stellar testnet:
-- `CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F`
-- https://stellar.expert/explorer/testnet/contract/CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F
-
-Demo provider address:
-- `GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT`
-- https://stellar.expert/explorer/testnet/account/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
+| Tier | Requirements |
+|------|-------------|
+| **New** | 0–2 interactions or score < 20 |
+| **Active** | 3+ interactions, score 20–69 |
+| **Trusted** | 5+ interactions, score 70+, 3+ counterparties |
 
 ## Quick Start
 
-### One command
-
-```bash
-git clone https://github.com/ggoldani/agent-passport.git
-cd agent-passport
-chmod +x setup.sh
-./setup.sh
-```
-
-The script clones [stellar-mcp](https://github.com/ggoldani/stellar-mcp), installs all dependencies, starts all services, and runs health checks. Once running:
-
-- **Dashboard:** http://localhost:3000
-- **Provider trust profile:** http://localhost:3000/agents/GC7TRXR2SJ7644453S5BR755L5M2OSUFIFOEAYGEPMUOKLPFI6HEKOPT
-
-Run the full demo:
-
-```bash
-npm run demo
-```
-
-Press `Ctrl+C` to stop all services.
-
-### Using the SDK
+### For developers integrating into their app
 
 ```bash
 npm install @ggoldani/agent-passport-sdk
 ```
 
-Query any agent's trust profile in a few lines:
-
 ```typescript
-import { AgentPassportClient } from "@ggoldani/agent-passport-sdk"
+import { AgentPassportClient, SorobanRpcTransport } from "@ggoldani/agent-passport-sdk"
 
 const client = new AgentPassportClient({
-  contractId: "CCIK4FM4PM7SXYFPBBTG5NCMH5TWCKHHK75RZSKUU5GA27UVLS572U7F",
-  transport: myTransport,
+  contractId: "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
+  transport: new SorobanRpcTransport({
+    rpcUrl: "https://soroban-testnet.stellar.org",
+    networkPassphrase: "Test SDF Network ; September 2015",
+    signerSecretKey: process.env.SECRET_KEY!,
+  }),
 })
 
 const profile = await client.getAgent("G...")
-console.log(`Score: ${profile.score}`)
-console.log(`Verified interactions: ${profile.verified_interactions_count}`)
-console.log(`Total volume: ${profile.total_economic_volume}`)
+console.log(`Score: ${profile.score} | Interactions: ${profile.verified_interactions_count}`)
 ```
 
-For full setup with dashboard and demo, use the commands below.
+### For AI agents (Claude, Cursor, etc.)
 
-### Manual setup
+```bash
+npm install @ggoldani/agent-passport-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "agent-passport": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@ggoldani/agent-passport-mcp"],
+      "env": {
+        "STELLAR_NETWORK": "testnet",
+        "STELLAR_CONTRACT_ID": "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
+        "AGENTPASSPORT_API_URL": "http://localhost:3002"
+      }
+    }
+  }
+}
+```
+
+### For local development
+
+Requires Node.js 18+, SQLite, a funded Stellar testnet account, and a contract ID.
 
 ```bash
 git clone https://github.com/ggoldani/agent-passport.git
-git clone https://github.com/ggoldani/stellar-mcp.git
-
-# Build stellar-mcp
-cd stellar-mcp && npm install && npm run build
-
-# Setup agent-passport
-cd ../agent-passport
-cp .env.demo .env
+cd agent-passport
 npm install && npm --prefix web install
-
-# Terminal A — stellar-mcp
-cd ../stellar-mcp
-MCP_TRANSPORT=http-sse PORT=3005 STELLAR_NETWORK=testnet npm run start:http
-
-# Terminal B — provider
-cd ../agent-passport
-set -a && . ./.env && npm run provider
-
-# Terminal C — dashboard
-cd ../agent-passport
-set -a && . ./.env && npm run dashboard
-
-# Run the demo
-cd ../agent-passport
-set -a && . ./.env && npm run demo
+cp .env.example .env  # fill in: contract ID, funded testnet secret keys (S...)
+npm run db:push       # create SQLite database
+npm run sync           # backfill historical contract events
+npm run api &          # API server on :3002
+npm run indexer &      # real-time event watcher
+npm run dev            # dashboard on :3000
 ```
 
-### Useful commands
+Open http://localhost:3000.
 
-- `npm run contracts` — run Soroban contract tests
-- `npm run provider` — start StellarIntel provider
-- `npm run cli -- help` — AgentPassport CLI
-- `npm run demo` — full end-to-end demo
-- `npm run dashboard` — start Next.js dashboard
+## What's included
 
-## Supporting demo provider
+- **Soroban smart contract** — on-chain identity registry, interaction recording, rating system
+- **REST API** — search agents, check trust, view analytics, embed badges
+- **TypeScript SDK** — query trust profiles and register interactions from any Node.js app
+- **MCP server** — 22 tools so AI agents can check trust and interact with the registry directly ([full tool list](tools/agent-passport-mcp/README.md))
+- **Web dashboard** — register your agent, browse providers, view analytics
+- **Trust badge widget** — show your trust score on your website to win more customers
 
-This repository also includes **StellarIntel**, a minimal paid Stellar account intelligence service used to make the AgentPassport trust flow concrete and demoable.
+## How it works
 
-StellarIntel exists to show the full loop clearly:
-- a provider can build trust from real paid work
-- a consumer can inspect that trust before paying
-- reputation changes only after a verified paid interaction
+1. A provider registers an on-chain identity
+2. A consumer checks the provider's trust profile
+3. The consumer pays via x402
+4. A relayer verifies the payment and records the interaction
+5. The consumer rates the provider (unlocked only after verified payment)
+6. The provider's public trust profile updates
 
-StellarIntel is intentionally narrow:
-- one paid endpoint
-- one Stellar account input
-- real data from the Stellar network
-- deterministic summary logic
-- no LLM required for MVP
+## Roadmap
 
-In the current implementation:
-- the provider owner identity is separate from the relayer identity
-- the provider receives the x402 payment
-- the relayer only performs the trusted on-chain write after settlement verification
+### Completed (Phases 1–5)
+- SDK with dual transports (RPC + API)
+- Self-serve web registration (wallet-based)
+- Real-time event indexer
+- REST API with search, analytics, trust checks
+- Full-text search (FTS5) with advanced filters
+- Trust tiers (New, Active, Trusted) with badge system
+- Contract security hardening
+- MCP server with 22 tools
+- Landing page and SKILL.md
 
-## Ecosystem context
+### Near-term (mainnet readiness)
+- Mainnet contract deployment
+- DevOps infrastructure (structured logging, error monitoring, scaling)
+- On-chain payment verification
+- Sybil resistance hardening (if network density warrants it)
 
-AgentPassport is designed to work alongside the existing Stellar agent/payment stack:
-- Stellar x402
-- Soroban smart contracts
-- OpenZeppelin relayer / x402 facilitator
-- `stellar-mcp` as ecosystem infrastructure
+> **Note:** The current trust model provides economic disincentives for sybil attacks (each fake interaction costs real XLM), but does not yet implement graph-based sybil detection (AgentRank). This is acceptable for early network bootstrapping where real usage patterns can be measured before adding algorithmic defenses.
 
-## What this repository is and is not
+### Future
+- AgentRank scoring (PageRank on interaction graph)
+- Dispute system
+- Multi-chain reputation
+- Webhook notifications
 
-The new hackathon work in this repository is:
-- the Soroban contract
-- the worker and relayer-side submission flow
-- the paid **StellarIntel** provider
-- the CLI, dashboard, and demo orchestration
+## Project structure
 
-`stellar-mcp` is not the new hackathon implementation in this repo. It is an external companion service we run locally and query for live Stellar account/history data. AgentPassport depends on it for the demo provider's deterministic account analysis, but it remains separate infrastructure.
+```text
+agent-passport/
+├── contracts/          # Soroban smart contract
+├── scripts/            # Indexer, API, CLI entry points
+├── src/
+│   ├── sdk/            # @ggoldani/agent-passport-sdk
+│   ├── indexer/        # Drizzle ORM indexer
+│   ├── api/            # REST API (Hono)
+│   ├── cli/            # CLI commands
+│   └── lib/            # Shared utilities
+├── tools/
+│   └── agent-passport-mcp/  # @ggoldani/agent-passport-mcp
+├── web/                # Next.js dashboard
+└── docs/               # Skills, specs, plans
+```
 
-## Documentation
+## Links
 
-Planning and design docs were maintained locally during implementation in `docs/plans/`, which is intentionally ignored by git in this repo.
+- [Dashboard](https://agent-passport.vercel.app) — live on testnet
+- [SKILL.md](https://agent-passport.vercel.app/SKILL.md) — AI agent integration guide
+- [SDK README](src/sdk/README.md) — full SDK documentation
+- [MCP README](tools/agent-passport-mcp/README.md) — MCP server setup
 
-The tracked source of truth for the MVP is the implementation itself:
-- `contracts/agent-passport/`
-- `scripts/worker/`
-- `src/provider/`
-- `src/cli/`
-- `scripts/demo-e2e.ts`
-- `web/`
+## License
 
-## Public roadmap
-
-### Completed
-- [x] SDK as primary entry point (published on npm, standalone usage) — Phase 1
-- [x] Self-serve provider onboarding (wallet-based registration) — Phase 1
-- [x] Real-time indexer for instant trust profile queries — Phase 2
-- [x] Read-only trust API for integrators and ecosystem apps — Phase 2
-- [x] Search, filters, and ranking for provider discovery (basic) — Phase 2
-- [x] SDK supports both RPC and API transports — Phase 2
-
-### Near-term (Phase 3: Discovery & Scoring)
-- [ ] Advanced full-text search (FTS5) and advanced filters
-- [ ] AgentRank scoring (PageRank on interaction graph)
-- [ ] Multi-signal score composition
-- [ ] Recency decay on interaction weight
-- [ ] Dashboard v2 with enriched trust data
-
-### Strategic
-- [ ] Multi-chain reputation — port the payment-gated trust model beyond Stellar to EVM and other chains
-- [ ] Reputation scores as on-chain data feeds — trust scores feed into escrow terms, access control, insurance premiums
-- [ ] Composable trust layer — AgentPassport as the reputation layer for any agent identity system
-- [ ] Premium verification and curation layer
-- [ ] Broader ecosystem distribution through registries, directories, and marketplaces
-
-## Status
-
-AgentPassport has completed Phase 1 (Core Loop Completion) and Phase 2 (Query Infrastructure).
-
-Current state:
-- SDK with dual transports (Soroban RPC + Trust API)
-- Event indexer with XDR decoding, historical sync, and real-time polling
-- Public REST API with rate limiting
-- Dashboard consuming API with RPC fallback
-- CLI with 6 commands all executing live on testnet
-- Contract, worker, provider, and demo flow all verified on Stellar testnet
+MIT
