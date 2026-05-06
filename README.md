@@ -81,7 +81,7 @@ npm install @ggoldani/agent-passport-mcp
       "env": {
         "STELLAR_NETWORK": "testnet",
         "STELLAR_CONTRACT_ID": "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
-        "AGENTPASSPORT_API_URL": "https://agent-passport.xyz/api"
+        "AGENTPASSPORT_API_URL": "https://agent-passport.xyz"
       }
     }
   }
