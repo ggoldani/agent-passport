@@ -48,3 +48,6 @@ pnpm-debug.log*
 drizzle/
 docs/superpowers/
 docs/roadmap.md
+src/provider/
+scripts/worker/
+scripts/demo-e2e.ts
