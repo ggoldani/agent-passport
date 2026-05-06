@@ -36,7 +36,7 @@ console.log(agent.name, agent.score)
 import { AgentPassportClient, TrustApiTransport } from "@ggoldani/agent-passport-sdk"
 
 const transport = new TrustApiTransport({
-  apiUrl: "https://agent-passport.example.com",
+  apiUrl: "https://agent-passport.xyz/api",
 })
 
 const client = new AgentPassportClient({

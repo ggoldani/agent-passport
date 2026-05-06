@@ -23,7 +23,7 @@ Configure your MCP client:
       "env": {
         "STELLAR_NETWORK": "testnet",
         "STELLAR_CONTRACT_ID": "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
-        "AGENTPASSPORT_API_URL": "http://localhost:3002"
+        "AGENTPASSPORT_API_URL": "https://agent-passport.xyz/api"
       }
     }
   }
@@ -42,7 +42,7 @@ Configure your MCP client:
         "STELLAR_NETWORK": "testnet",
         "STELLAR_CONTRACT_ID": "CAYIR5ON6NDKCQ2KLPFHDJTNKEQHSTJP3ZBMRVV4QPEEAI5ZGLN4A7VQ",
         "STELLAR_SECRET_KEY": "S...",
-        "AGENTPASSPORT_API_URL": "http://localhost:3002"
+        "AGENTPASSPORT_API_URL": "https://agent-passport.xyz/api"
       }
     }
   }
