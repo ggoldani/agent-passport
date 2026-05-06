@@ -35,20 +35,6 @@ export function createApiServer(dbPath?: string) {
     await next()
   })
 
-  const SECURITY_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
-    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-  }
-
-  app.use("*", async (c, next) => {
-    await next()
-    for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-      c.header(key, value)
-    }
-  })
 
   app.use("*", rateLimit({ windowMs: 60_000, max: 300, db }))
   app.use("/agents/*", rateLimit({ windowMs: 60_000, max: 60, db }))

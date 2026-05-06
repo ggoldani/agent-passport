@@ -5,7 +5,7 @@ const STATIC_ROUTES = [
   "/",
   "/agents",
   "/docs",
-  "/docs.md",
+  "/llms.txt",
   "/register",
   "/skills",
   "/SKILL.md",

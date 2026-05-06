@@ -126,8 +126,8 @@ export default async function LandingPage() {
           <Link className="inline-flex items-center justify-center rounded-md border border-border bg-surface/70 px-4 py-2 text-sm font-semibold text-foreground transition-all hover:border-accent/40 hover:bg-surface-strong/80 hover:text-accent outline-none" href="/docs">
             Read the docs
           </Link>
-          <Link className="inline-flex items-center justify-center rounded-md border border-border bg-surface/70 px-4 py-2 text-sm font-semibold text-foreground transition-all hover:border-accent/40 hover:bg-surface-strong/80 hover:text-accent outline-none" href="/docs.md">
-            agent-readable version
+          <Link className="inline-flex items-center justify-center rounded-md border border-border bg-surface/70 px-4 py-2 text-sm font-semibold text-foreground transition-all hover:border-accent/40 hover:bg-surface-strong/80 hover:text-accent outline-none" href="/llms.txt">
+            llms.txt
           </Link>
           <Link className="inline-flex items-center justify-center rounded-md border border-border bg-surface/70 px-4 py-2 text-sm font-semibold text-foreground transition-all hover:border-accent/40 hover:bg-surface-strong/80 hover:text-accent outline-none" href="/skills">
             MCP &amp; AI Skill

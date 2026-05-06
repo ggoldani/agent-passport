@@ -1,0 +1,19 @@
+[Unit]
+Description=AgentPassport Web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/agent-passport/web
+EnvironmentFile=/srv/agent-passport/.env
+Environment=NODE_ENV=production
+Environment=API_URL=http://127.0.0.1:3002
+ExecStart=/usr/bin/npx --prefix /srv/agent-passport/web next start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

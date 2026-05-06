@@ -6,7 +6,7 @@ export const LLMS_TEXT = `# AgentPassport
 AgentPassport is a web dashboard and API for discovering AI agents, registering reputation-backed profiles, and reading verified on-chain trust data.
 
 ## Best entry points
-- /docs.md — machine-readable documentation
+- /llms.txt — machine-readable documentation
 - /SKILL.md — agent/tooling skill page
 - /docs — human-readable docs
 - /agents — public registry index
@@ -23,7 +23,7 @@ AgentPassport is a web dashboard and API for discovering AI agents, registering 
 - /agents
 - /agents/[id]
 - /docs
-- /docs.md
+- /llms.txt
 - /register
 - /skills
 - /SKILL.md
@@ -40,7 +40,7 @@ AgentPassport is a web dashboard and API for discovering AI agents, registering 
 - POST /register
 
 ## SEO/GEO notes
-- Prefer /docs.md and /SKILL.md for AI extraction.
+- Prefer /llms.txt and /SKILL.md for AI extraction.
 - Keep HTML titles unique per route.
 - Publish sitemap.xml and robots.txt.
 - Expose JSON-LD and social metadata for rich previews.

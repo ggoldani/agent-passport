@@ -1,0 +1,18 @@
+[Unit]
+Description=AgentPassport API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/agent-passport
+EnvironmentFile=/srv/agent-passport/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npx tsx scripts/run-api.ts
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

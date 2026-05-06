@@ -40,6 +40,7 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
   const [validationErrors, setValidationErrors] = useState<FormValidationError[]>([])
   const [kitReady, setKitReady] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
+  const walletAddressRef = useRef<string | null>(null)
   const kitButtonRef = useRef<HTMLDivElement>(null)
   const abortedRef = useRef(false)
   const formInputRef = useRef(formInput)
@@ -49,6 +50,40 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
     let cancelled = false
     let unsub1: (() => void) | undefined
     let unsub2: (() => void) | undefined
+    let syncInterval: number | undefined
+
+    const applyAddress = (nextAddress: string | null) => {
+      const previousAddress = walletAddressRef.current
+
+      if (nextAddress !== previousAddress) {
+        setState({ status: "idle" })
+        setValidationErrors([])
+      }
+
+      walletAddressRef.current = nextAddress
+      setWalletAddress(nextAddress)
+    }
+
+    const syncWalletAddress = async () => {
+      try {
+        const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit/sdk")
+        const { address } = await StellarWalletsKit.fetchAddress()
+        if (cancelled) return
+        applyAddress(address ?? null)
+      } catch {
+        if (cancelled) return
+        walletAddressRef.current = null
+        setWalletAddress(null)
+      }
+    }
+
+    const onWindowFocus = () => {
+      void syncWalletAddress()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void syncWalletAddress()
+    }
 
     ;(async () => {
       const { StellarWalletsKit } = await import("@creit-tech/stellar-wallets-kit/sdk")
@@ -62,26 +97,31 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
         await StellarWalletsKit.createButton(kitButtonRef.current)
       }
 
-      unsub1 = StellarWalletsKit.on(
-        KitEventType.STATE_UPDATED,
-        (event: { payload: { address: string | undefined } }) => {
-          if (event.payload.address) {
-            setKitReady(true)
-            setWalletAddress(event.payload.address)
-          }
-        },
-      )
+      unsub1 = StellarWalletsKit.on(KitEventType.STATE_UPDATED, () => {
+        void syncWalletAddress()
+      })
       unsub2 = StellarWalletsKit.on(KitEventType.DISCONNECT, () => {
-        setKitReady(false)
+        walletAddressRef.current = null
         setWalletAddress(null)
+        setState({ status: "idle" })
       })
 
+      window.addEventListener("focus", onWindowFocus)
+      document.addEventListener("visibilitychange", onVisibilityChange)
+      syncInterval = window.setInterval(() => {
+        void syncWalletAddress()
+      }, 2000)
+
       if (!cancelled && kitButtonRef.current) setKitReady(true)
+      await syncWalletAddress()
     })()
 
     return () => {
       cancelled = true
       abortedRef.current = true
+      if (syncInterval !== undefined) window.clearInterval(syncInterval)
+      window.removeEventListener("focus", onWindowFocus)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
       unsub1?.()
       unsub2?.()
     }
@@ -114,7 +154,7 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
       if (abortedRef.current) return
       setState({ status: "connecting" })
 
-      const result = await StellarWalletsKit.getAddress()
+      const result = await StellarWalletsKit.fetchAddress()
       if (abortedRef.current) return
       const address = result.address
       if (!address) {
@@ -158,8 +198,26 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
         setState({ status: "idle" })
         return
       }
-      const message = mapContractError(error)
-      setState({ status: "error", message })
+      if (msg.includes("already registered")) {
+        setState({ status: "error", message: "This address is already registered" })
+        return
+      }
+      if (msg.startsWith("Registration API error (")) {
+        const apiMessage = msg.replace(/^Registration API error \(\d{3}\):\s*/, "")
+        setState({
+          status: "error",
+          message:
+            apiMessage && apiMessage !== "unknown error"
+              ? apiMessage
+              : "Registration endpoint returned an error. Please try again.",
+        })
+        return
+      }
+      if (msg.includes("Error(Contract,")) {
+        setState({ status: "error", message: mapContractError(error) })
+        return
+      }
+      setState({ status: "error", message: msg || "Registration failed. Please try again." })
     }
   }, [config])
 
@@ -339,6 +397,9 @@ export function RegistrationForm({ config, publicApiUrl }: RegistrationFormProps
                 ? "Submitting transaction..."
                 : "Connect Wallet & Register"}
       </button>
+      <p className="text-center font-mono text-xs text-muted">
+        {walletAddress ? `Connected wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "No wallet connected"}
+      </p>
       {(state.status === "signing" || state.status === "submitting") &&
         "address" in state && (
           <p className="text-center font-mono text-xs text-muted">

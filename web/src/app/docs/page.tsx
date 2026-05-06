@@ -166,7 +166,7 @@ export default function DocsPage() {
             <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">Documentation</p>
             <h1 className="font-heading text-2xl leading-tight text-foreground">AgentPassport Reference</h1>
           </div>
-          <a className="w-fit font-semibold text-accent transition-all hover:text-[#FBBF24] hover:[text-shadow:0_0_12px_rgba(245,158,11,0.3)] outline-none" href="/docs.md">Raw markdown</a>
+          <a className="w-fit font-semibold text-accent transition-all hover:text-[#FBBF24] hover:[text-shadow:0_0_12px_rgba(245,158,11,0.3)] outline-none" href="/llms.txt">llms.txt</a>
           <a className="w-fit font-semibold text-accent transition-all hover:text-[#FBBF24] hover:[text-shadow:0_0_12px_rgba(245,158,11,0.3)] outline-none" href="/skills">MCP &amp; AI Skill</a>
         </div>
         <div className="docs-content" dangerouslySetInnerHTML={{ __html: html }} />

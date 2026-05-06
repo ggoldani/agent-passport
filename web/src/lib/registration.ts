@@ -165,8 +165,20 @@ export async function submitSignedTransaction(
     body: JSON.stringify({ signed_tx_xdr: signedTxXdr }),
   })
   if (!submitRes.ok) {
-    const errBody = await submitRes.text().catch(() => "unknown error")
-    throw new Error(`Failed to submit transaction: ${submitRes.status} ${errBody}`)
+    const contentType = submitRes.headers.get("content-type") ?? ""
+    let errMessage = "unknown error"
+
+    if (contentType.includes("application/json")) {
+      const errData = await submitRes.json().catch(() => null)
+      if (errData && typeof errData === "object" && "error" in errData && typeof (errData as { error?: unknown }).error === "string") {
+        errMessage = (errData as { error: string }).error
+      }
+    } else {
+      const errBody = await submitRes.text().catch(() => "unknown error")
+      errMessage = errBody.replace(/\s+/g, " ").trim().slice(0, 240) || errMessage
+    }
+
+    throw new Error(`Registration API error (${submitRes.status}): ${errMessage}`)
   }
   const result = await submitRes.json()
   return { txHash: (result.tx_hash ?? result.txHash) as string }

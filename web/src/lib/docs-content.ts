@@ -411,7 +411,7 @@ Exceeding rate limits returns a 429 response.
 A machine-readable version of this documentation is available at:
 
 \`\`\`
-GET /docs.md
+GET /llms.txt
 \`\`\`
 
 This returns the raw markdown content, suitable for automated parsing and integration into agent tooling.
