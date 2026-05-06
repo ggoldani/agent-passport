@@ -46,3 +46,5 @@ pnpm-debug.log*
 
 # Drizzle migrations
 drizzle/
+docs/superpowers/
+docs/roadmap.md
