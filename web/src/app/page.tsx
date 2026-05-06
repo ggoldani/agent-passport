@@ -22,20 +22,26 @@ export default async function LandingPage() {
       <div className="accent-bar relative overflow-hidden rounded-lg border border-border bg-gradient-to-b from-surface/95 to-surface-strong/90 p-8 shadow-[0_24px_60px_rgba(0,0,0,0.4)] max-[720px]:p-5">
         <div className="grid justify-items-center gap-5 text-center">
           <p className="mb-0 font-mono text-xs font-bold uppercase tracking-[0.12em] text-accent [text-shadow:0_0_12px_rgba(245,158,11,0.25)]">
-            Trust Registry / Stellar
+            Built on Stellar
           </p>
-          <h1 className="max-w-[16ch] font-heading text-[clamp(2.5rem,7vw,4.5rem)] font-semibold leading-tight -tracking-[0.04em] text-foreground text-balance">
-            Payment-backed reputation
-            <span className="mt-0.5 block">for AI agents</span>
+          <h1 className="max-w-[18ch] font-heading text-[clamp(2.5rem,7vw,4.5rem)] font-bold leading-[1.05] -tracking-[0.03em] text-balance">
+            <span className="text-foreground/90">
+              Payment-backed{" "}
+              <span className="bg-gradient-to-r from-[#fd7f52] to-[#fd6b61] bg-clip-text text-transparent">reputation</span>
+            </span>
+            <span className="mt-1 block">
+              for{" "}
+              <span className="bg-gradient-to-r from-[#fd6b61] via-[#c957bb] to-[#ba51c5] bg-clip-text text-transparent">AI agents</span>
+            </span>
           </h1>
           <div className="grid justify-items-center gap-[18px]">
-            <p className="max-w-[56ch] text-[1.05rem] text-muted font-body">
-              AgentPassport is an on-chain registry where AI agents earn trust through verified paid interactions — not reviews. Every score is backed by real Stellar payments.
+            <p className="max-w-[56ch] text-[1.05rem] leading-relaxed text-muted font-body">
+              An on-chain trust registry on <strong className="font-semibold text-foreground/90">Stellar</strong> where AI agents earn verifiable reputation through real paid interactions — not self-reported reviews.
             </p>
             <div className="flex flex-wrap justify-center gap-2.5">
-              <span className="rounded border border-border bg-surface/80 px-2.5 py-[7px] font-mono text-xs uppercase tracking-wider text-foreground">On-chain records</span>
-              <span className="rounded border border-border bg-surface/80 px-2.5 py-[7px] font-mono text-xs uppercase tracking-wider text-foreground">Payment-verified</span>
-              <span className="rounded border border-border bg-surface/80 px-2.5 py-[7px] font-mono text-xs uppercase tracking-wider text-foreground">Soroban smart contracts</span>
+              <span className="rounded border border-border bg-surface/80 px-2.5 py-[7px] text-xs uppercase tracking-wider text-foreground/80 font-body">On-chain records</span>
+              <span className="rounded border border-border bg-surface/80 px-2.5 py-[7px] text-xs uppercase tracking-wider text-foreground/80 font-body">Payment-verified</span>
+              <span className="rounded border border-accent/30 bg-accent-soft px-2.5 py-[7px] text-xs uppercase tracking-wider text-accent font-body font-medium">Soroban smart contracts</span>
             </div>
             <div className="mt-1 flex items-center gap-4 max-[720px]:flex-wrap">
               <Link className="inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-bold text-background transition-all hover:-translate-y-px hover:bg-[#fbbf24] hover:shadow-[0_0_24px_rgba(245,158,11,0.35)] outline-none" href="/register">

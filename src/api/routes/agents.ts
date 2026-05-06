@@ -100,6 +100,7 @@ app.get("/", async (c) => {
   const sortBy = c.req.query("sortBy") ?? c.req.query("sort") ?? "score"
   const sortOrder = c.req.query("sortOrder") !== "asc" ? "desc" : "asc"
   const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 20, 100))
+  const offset = Math.max(0, Number(c.req.query("offset")) || 0)
 
   if (sortBy === "relevance" && !q) {
     return c.json({ error: "sortBy=relevance requires a search query (q parameter)" }, 400)
@@ -159,12 +160,12 @@ app.get("/", async (c) => {
        INNER JOIN agents ON agents.rowid = agents_fts.rowid
        WHERE agents_fts MATCH ? ${whereClause}
        ORDER BY bm25(agents_fts) ${orderClause}
-       LIMIT ?`
-    ).all(sanitizedQ!, ...params, limit + 1) as any[]
+       LIMIT ? OFFSET ?`
+    ).all(sanitizedQ!, ...params, limit + 1, offset) as any[]
   } else {
     const baseQuery = db.select().from(agents)
     const filteredQuery = where ? baseQuery.where(where) : baseQuery
-    rows = await filteredQuery.orderBy(orderFn(sortColumn)).limit(limit + 1).all()
+    rows = await filteredQuery.orderBy(orderFn(sortColumn)).limit(limit + 1).offset(offset).all()
   }
 
   const hasMore = rows.length > limit
@@ -301,6 +302,7 @@ app.get("/:address/counterparties", async (c) => {
   const rawDb = getRawDb()
   const address = c.req.param("address")
   const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 10, 50))
+  const offset = Math.max(0, Number(c.req.query("offset")) || 0)
 
   const rows = rawDb.prepare(
     `SELECT
@@ -329,8 +331,8 @@ app.get("/:address/counterparties", async (c) => {
     ) combined
     GROUP BY counterparty_address
     ORDER BY interaction_count DESC
-    LIMIT ?`
-  ).all(address, address, limit + 1) as Array<{
+    LIMIT ? OFFSET ?`
+  ).all(address, address, limit + 1, offset) as Array<{
     address: string
     interaction_count: number
     total_volume: number

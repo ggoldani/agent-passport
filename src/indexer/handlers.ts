@@ -79,7 +79,11 @@ export function handleInteractionRegistered(db: Db, event: RawEvent): void {
       : Buffer.isBuffer(rawHash) || rawHash instanceof Uint8Array
         ? Buffer.from(rawHash).toString("hex")
         : String(rawHash)
-    amount = String(fields.amount ?? "0")
+    const rawAmount = fields.amount ?? 0
+    const absAmount = typeof rawAmount === "bigint"
+      ? (rawAmount < 0n ? -rawAmount : rawAmount)
+      : BigInt(Math.abs(Number(rawAmount)))
+    amount = String(absAmount)
     timestamp = Number(fields.timestamp ?? 0)
     serviceLabel = fields.service_label != null ? String(fields.service_label) : null
   } catch (e) {

@@ -14,14 +14,14 @@ export function ScoreChart({ data }: ScoreChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={data}>
-        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted)" />
-        <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} stroke="var(--muted)" />
+        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--color-muted)" />
+        <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} stroke="var(--color-muted)" />
         <Tooltip
-          contentStyle={{ background: "var(--surface)", border: "1px solid var(--muted)", borderRadius: "4px", fontSize: "12px" }}
-          labelStyle={{ color: "var(--foreground)" }}
+          contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-muted)", borderRadius: "4px", fontSize: "12px" }}
+          labelStyle={{ color: "var(--color-foreground)" }}
           formatter={(value: unknown) => [String(value ?? 0), "Score"]}
         />
-        <Line type="monotone" dataKey="score" stroke="var(--accent)" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="score" stroke="var(--color-accent)" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   )

@@ -31,6 +31,24 @@ export class AgentPassportIndexer {
 
   async start(): Promise<void> {
     if (this.running) return
+    const lockPath = `${process.env.HOME}/.agent-passport/indexer.pid`
+    const fs = await import("fs")
+    try {
+      const existingPid = fs.readFileSync(lockPath, "utf8").trim()
+      if (existingPid && process.pid !== Number(existingPid)) {
+        try { process.kill(Number(existingPid), 0) } catch { fs.unlinkSync(lockPath) }
+        if (fs.existsSync(lockPath)) {
+          throw new Error(`Indexer already running (PID ${existingPid})`)
+        }
+      }
+    } catch (e: any) {
+      if (e.message?.includes("already running")) throw e
+    }
+    fs.mkdirSync(`${process.env.HOME}/.agent-passport`, { recursive: true })
+    fs.writeFileSync(lockPath, String(process.pid))
+    process.on("SIGINT", () => { try { fs.unlinkSync(lockPath) } catch {} process.exit(0) })
+    process.on("SIGTERM", () => { try { fs.unlinkSync(lockPath) } catch {} process.exit(0) })
+
     this.running = true
     const db = getDatabase()
     const watermark = this.readWatermark(db)
@@ -132,18 +150,18 @@ export class AgentPassportIndexer {
               case "profile_updated": handleProfileUpdated(db, event); break
               case "agent_deregistered": handleAgentDeregistered(db, event); break
             }
+            eventCount++
+            if (event.ledger > maxEventLedger) maxEventLedger = event.ledger
           } catch (handlerErr: any) {
             console.error(`Handler error for ${name} at ledger ${event.ledger}:`, handlerErr?.message ?? handlerErr)
           }
-          eventCount++
-          if (event.ledger > maxEventLedger) maxEventLedger = event.ledger
+        }
+        if (response.latestLedger > watermark) {
+          this.writeWatermark(db, Math.max(maxEventLedger, response.latestLedger))
         }
       })
-      if (response.latestLedger > watermark) {
-        this.writeWatermark(db, Math.max(maxEventLedger, response.latestLedger))
-        if (eventCount > 0) {
-          console.log(`Indexed ${eventCount} events up to ledger ${Math.max(maxEventLedger, response.latestLedger)}`)
-        }
+      if (eventCount > 0 && response.latestLedger > watermark) {
+        console.log(`Indexed ${eventCount} events up to ledger ${Math.max(maxEventLedger, response.latestLedger)}`)
       }
     } catch (error: any) {
       if (error?.code === -32600 && error?.message?.includes("ledger range")) {

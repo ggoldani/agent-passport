@@ -23,7 +23,7 @@ export function SearchBar() {
       params.delete("q")
     }
     const qs = params.toString()
-    router.push(qs ? `?${qs}` : "/agents")
+    router.replace(qs ? `?${qs}` : "/agents")
   }, [router, searchParams])
 
   const clearQuery = useCallback(() => {

@@ -17,8 +17,8 @@ export function PeriodSelector({ periods, value, onChange }: PeriodSelectorProps
             onClick={() => onChange(p)}
             className={`px-3 py-1 text-xs rounded border cursor-pointer transition-colors ${
               isActive
-                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--background)] font-semibold"
-                : "border-[var(--muted)] bg-transparent text-[var(--foreground)] hover:border-[var(--border-strong)]"
+                ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-background)] font-semibold"
+                : "border-[var(--color-muted)] bg-transparent text-[var(--color-foreground)] hover:border-[var(--color-border-strong)]"
             }`}
           >
             {p}

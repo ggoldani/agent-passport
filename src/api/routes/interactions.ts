@@ -24,6 +24,7 @@ app.get("/", async (c) => {
   const db = c.get("db")
   const providerAddress = c.req.param("address")!
   const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 20, 100))
+  const offset = Math.max(0, Number(c.req.query("offset")) || 0)
 
   const [{ count: total }] = await db
     .select({ count: sql<number>`count(*)` })
@@ -36,6 +37,7 @@ app.get("/", async (c) => {
     .where(eq(interactions.provider_address, providerAddress))
     .orderBy(desc(interactions.timestamp))
     .limit(limit + 1)
+    .offset(offset)
 
   const hasMore = rows.length > limit
   const data = rows.slice(0, limit).map(formatInteraction)

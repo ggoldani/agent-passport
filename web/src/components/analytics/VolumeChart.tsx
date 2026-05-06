@@ -17,14 +17,14 @@ export function VolumeChart({ data }: VolumeChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={xlmData}>
-        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--muted)" />
-        <YAxis tick={{ fontSize: 10 }} stroke="var(--muted)" />
+        <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="var(--color-muted)" />
+        <YAxis tick={{ fontSize: 10 }} stroke="var(--color-muted)" />
         <Tooltip
-          contentStyle={{ background: "var(--surface)", border: "1px solid var(--muted)", borderRadius: "4px", fontSize: "12px" }}
-          labelStyle={{ color: "var(--foreground)" }}
+          contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-muted)", borderRadius: "4px", fontSize: "12px" }}
+          labelStyle={{ color: "var(--color-foreground)" }}
           formatter={(value: unknown) => [`${Number(value).toFixed(2)} XLM`, "Volume"]}
         />
-        <Area type="monotone" dataKey="volume" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.15} />
+        <Area type="monotone" dataKey="volume" stroke="var(--color-accent)" fill="var(--color-accent)" fillOpacity={0.15} />
       </AreaChart>
     </ResponsiveContainer>
   )
